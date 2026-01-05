@@ -3,8 +3,8 @@
 let executionHistory = []; // 用于存储当前会话的执行历史
 
 // 新增：重置会话（清空上下文）
-window.handleNewChat = function() {
-    if (!confirm('确定要开启新会话吗？这将清空当前聊天记录和执行历史。')) return;
+window.handleNewChat = async function() {
+    if (!(await uiConfirm('确定要开启新会话吗？这将清空当前聊天记录和执行历史。', '开启新会话确认'))) return;
     
     // 重置全局历史数组
     if (typeof window.opsHistory !== 'undefined') window.opsHistory = [];

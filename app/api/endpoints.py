@@ -1140,7 +1140,7 @@ async def ask_question(
             mode=mode
         )
         # 免费问答/脚本咨询，不扣点，仅记录次数
-        log = UsageLog(user_id=user.id, task=f"问答: {question[:40]}", cost=0.0)
+        log = UsageLog(user_id=user.id, task=f"问答[{mode}]: {question[:40]}", cost=0.0)
         db.add(log); db.commit()
         return result
     except Exception as e: 
@@ -1232,6 +1232,17 @@ async def get_ops_users(
     offset = (page - 1) * page_size
     total = db.query(User).count()
     users = db.query(User).order_by(User.created_at.desc()).offset(offset).limit(page_size).all()
+
+    # 统计每个用户的使用次数（排除充值日志）
+    user_ids = [u.id for u in users]
+    usage_counts = {}
+    if user_ids:
+        rows = db.query(UsageLog.user_id, func.count(UsageLog.id)).filter(
+            UsageLog.user_id.in_(user_ids),
+            ~UsageLog.task.like('充值%')
+        ).group_by(UsageLog.user_id).all()
+        usage_counts = {int(uid): int(cnt) for uid, cnt in rows}
+
     
     return {
         "total": total,
@@ -1245,10 +1256,90 @@ async def get_ops_users(
             "balance": u.balance,
             "created_at": u.created_at.strftime("%Y-%m-%d %H:%M:%S") if u.created_at else "",
             "user_type": u.user_type,
-            "tier": u.tier.value
+            "tier": u.tier.value,
+            "usage_count": usage_counts.get(u.id, 0)
         } for u in users]
     }
 
+
+
+
+@router.get("/admin/ops/users/{user_id}/daily-usage")
+async def get_user_daily_usage(
+    user_id: int,
+    days: int = 30,
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """按天聚合用户使用次数（方案咨询/代码/排障与部署）与算力消耗"""
+    from datetime import datetime, timedelta
+    from sqlalchemy import case
+
+    days = max(1, min(int(days or 30), 365))
+    end = datetime.utcnow()
+    start = end - timedelta(days=days)
+
+    # 聚合：按日期
+    day_col = func.date(UsageLog.timestamp)
+
+    rows = db.query(
+        day_col.label('day'),
+        func.sum(case((UsageLog.task.like('问答[qa]%'), 1), (UsageLog.task.like('问答:%'), 1), else_=0)).label('qa_count'),
+        func.sum(case((UsageLog.task.like('问答[code]%'), 1), else_=0)).label('code_count'),
+        func.sum(case((UsageLog.task.like('排障计划:%'), 1), else_=0)).label('ops_plan_count'),
+        func.sum(case((UsageLog.task.like('执行:%'), 1), else_=0)).label('ops_exec_count'),
+        func.coalesce(func.sum(UsageLog.cost), 0.0).label('cost_sum'),
+    ).filter(
+        UsageLog.user_id == user_id,
+        UsageLog.timestamp >= start,
+        ~UsageLog.task.like('充值%'),
+    ).group_by(day_col).order_by(day_col.asc()).all()
+
+    # 组装map
+    m = {}
+    for r in rows:
+        day = str(r.day)
+        qa = int(r.qa_count or 0)
+        code = int(r.code_count or 0)
+        ops = int((r.ops_plan_count or 0) + (r.ops_exec_count or 0))
+        cost = float(r.cost_sum or 0.0)
+        m[day] = {
+            'date': day,
+            'qa': qa,
+            'code': code,
+            'ops': ops,
+            'total': qa + code + ops,
+            'compute': cost,
+        }
+
+    # 补全缺失日期
+    out = []
+    for i in range(days):
+        d = (start + timedelta(days=i)).date()
+        key = str(d)
+        out.append(m.get(key, {
+            'date': key,
+            'qa': 0,
+            'code': 0,
+            'ops': 0,
+            'total': 0,
+            'compute': 0.0,
+        }))
+
+    totals = {
+        'qa': sum(x['qa'] for x in out),
+        'code': sum(x['code'] for x in out),
+        'ops': sum(x['ops'] for x in out),
+        'total': sum(x['total'] for x in out),
+        'compute': float(sum(x['compute'] for x in out)),
+    }
+
+    return {
+        'user_id': user_id,
+        'days': days,
+        'items': out,
+        'totals': totals,
+    }
 
 from fastapi import Request
 from app.models.user import WebsiteVisit

@@ -693,7 +693,7 @@ async function handleAddHost() {
 }
 
 async function handleDeleteHost(id) {
-  if (!confirm('确认删除该主机？')) return;
+  if (!(await uiConfirm('确认删除该主机？'))) return;
   const res = await api(`/ssh/hosts/${id}`, 'DELETE');
   if (res?.message) alert(res.message);
   await loadHosts();
@@ -787,7 +787,7 @@ async function loadPrivateKB() {
 }
 
 async function handleDeleteKB(id) {
-  if (!confirm('确认删除该知识条目？')) return;
+  if (!(await uiConfirm('确认删除该知识条目？'))) return;
   const res = await api(`/kb/private/${id}`, 'DELETE');
   if (res?.message) alert(res.message);
   await loadPrivateKB();

@@ -3,6 +3,142 @@ let currentOpsUserPage = 1;
 let visitTrendChart = null;
 let visitSourceChart = null;
 
+
+
+function ensureOpsUsersTableColumns() {
+    const tbody = document.getElementById('ops-users-tbody');
+    if (!tbody) return;
+    const table = tbody.closest('table');
+    const headTr = table ? table.querySelector('thead tr') : null;
+    if (!headTr) return;
+
+    // Avoid repeated rewrites
+    if (headTr.dataset && headTr.dataset.extended === '1') return;
+    headTr.dataset.extended = '1';
+
+    headTr.innerHTML = `
+        <th class="py-3 px-2">ID</th>
+        <th class="py-3 px-2">用户名</th>
+        <th class="py-3 px-2">邮箱</th>
+        <th class="py-3 px-2">注册时间</th>
+        <th class="py-3 px-2">使用次数</th>
+        <th class="text-right py-3 px-2">算力余额</th>
+        <th class="text-right py-3 px-2">操作</th>
+    `;
+}
+
+function ensureOpsUserDetailModal() {
+    if (document.getElementById('ops-user-usage-modal')) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'ops-user-usage-modal';
+    wrap.className = 'hidden fixed inset-0 modal z-[250] flex items-center justify-center p-4';
+
+    wrap.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-6 max-h-[85vh] flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <div class="text-xs text-slate-400 font-bold">用户用量详情</div>
+            <div id="ops-user-usage-title" class="text-lg font-bold text-slate-800"></div>
+          </div>
+          <button class="text-slate-400 hover:text-slate-600" onclick="document.getElementById('ops-user-usage-modal').classList.add('hidden')">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div id="ops-user-usage-summary" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4"></div>
+
+        <div class="flex-1 overflow-y-auto border border-slate-100 rounded-xl">
+          <table class="w-full text-xs text-left">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-100">
+                <th class="py-2 px-3">日期</th>
+                <th class="py-2 px-3">方案咨询</th>
+                <th class="py-2 px-3">代码</th>
+                <th class="py-2 px-3">排障&部署</th>
+                <th class="py-2 px-3">合计</th>
+                <th class="py-2 px-3 text-right">消耗算力</th>
+              </tr>
+            </thead>
+            <tbody id="ops-user-usage-tbody" class="text-slate-600"></tbody>
+          </table>
+        </div>
+
+        <div class="mt-4 flex justify-between items-center">
+          <div class="text-[11px] text-slate-400">默认展示最近30天</div>
+          <button class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200" onclick="document.getElementById('ops-user-usage-modal').classList.add('hidden')">关闭</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(wrap);
+}
+
+async function openOpsUserDailyUsage(userId, usernameEnc) {
+    ensureOpsUserDetailModal();
+    const modal = document.getElementById('ops-user-usage-modal');
+    const title = document.getElementById('ops-user-usage-title');
+    const tbody = document.getElementById('ops-user-usage-tbody');
+    const summary = document.getElementById('ops-user-usage-summary');
+
+    const username = usernameEnc ? decodeURIComponent(usernameEnc) : '';
+    if (title) title.innerText = `${username || '-'} (ID: ${userId})`;
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-400">加载中...</td></tr>';
+    if (summary) summary.innerHTML = '';
+
+    if (modal) modal.classList.remove('hidden');
+
+    const token = authToken || localStorage.getItem('aio_token') || '';
+    try {
+        const res = await fetch(`/api/v1/admin/ops/users/${userId}/daily-usage?days=30`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok) {
+            if (typeof uiAlert === 'function') uiAlert(data.detail || '加载失败');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-red-500">加载失败：${(data.detail||res.statusText||'')}</td></tr>`;
+            return;
+        }
+
+        const items = Array.isArray(data.items) ? data.items : [];
+        const totals = data.totals || {};
+
+        if (summary) {
+            summary.innerHTML = `
+              <div class="glass-card p-3 rounded-xl"><div class="text-[10px] text-slate-400 font-bold">方案咨询</div><div class="text-sm font-bold">${Number(totals.qa||0).toLocaleString()}</div></div>
+              <div class="glass-card p-3 rounded-xl"><div class="text-[10px] text-slate-400 font-bold">代码</div><div class="text-sm font-bold">${Number(totals.code||0).toLocaleString()}</div></div>
+              <div class="glass-card p-3 rounded-xl"><div class="text-[10px] text-slate-400 font-bold">排障&部署</div><div class="text-sm font-bold">${Number(totals.ops||0).toLocaleString()}</div></div>
+              <div class="glass-card p-3 rounded-xl"><div class="text-[10px] text-slate-400 font-bold">总次数</div><div class="text-sm font-bold">${Number(totals.total||0).toLocaleString()}</div></div>
+              <div class="glass-card p-3 rounded-xl"><div class="text-[10px] text-slate-400 font-bold">消耗算力</div><div class="text-sm font-bold text-blue-600">${Number(totals.compute||0).toFixed(2)}</div></div>
+            `;
+        }
+
+        if (tbody) {
+            if (!items.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-400">暂无数据</td></tr>';
+            } else {
+                tbody.innerHTML = items.map(it => {
+                    const c = Number(it.compute || 0);
+                    return `
+                      <tr class="border-b border-slate-50 hover:bg-slate-50">
+                        <td class="py-2 px-3 font-mono text-xs">${it.date || '-'}</td>
+                        <td class="py-2 px-3">${Number(it.qa||0).toLocaleString()}</td>
+                        <td class="py-2 px-3">${Number(it.code||0).toLocaleString()}</td>
+                        <td class="py-2 px-3">${Number(it.ops||0).toLocaleString()}</td>
+                        <td class="py-2 px-3 font-bold">${Number(it.total||0).toLocaleString()}</td>
+                        <td class="py-2 px-3 text-right font-mono ${c>0?'text-blue-600 font-bold':'text-slate-400'}">${c.toFixed(2)}</td>
+                      </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+    } catch (e) {
+        console.error(e);
+        if (typeof uiAlert === 'function') uiAlert('加载失败: ' + (e.message || String(e)));
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-red-500">加载失败：${e.message || String(e)}</td></tr>`;
+    }
+}
 function switchOpsTab(tab) {
     // Toggle Views
     document.getElementById('ops-view-overview').classList.toggle('hidden', tab !== 'overview');
@@ -47,19 +183,35 @@ async function loadOpsUsers(page) {
         if (!tbody) return;
         
         if (!data.items || data.items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">暂无用户</td></tr>';
+            ensureOpsUsersTableColumns();
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-slate-400">暂无用户</td></tr>';
             return;
         }
         
-        tbody.innerHTML = data.items.map(u => `
+        ensureOpsUsersTableColumns();
+        tbody.innerHTML = data.items.map(u => {
+            const uname = encodeURIComponent(u.username || '');
+            return `
             <tr class="border-b border-slate-50 hover:bg-slate-50">
                 <td class="py-3 px-2">${u.id}</td>
                 <td class="py-3 px-2 font-bold text-slate-800">${u.username || '-'}</td>
                 <td class="py-3 px-2">${u.email || '-'}</td>
                 <td class="py-3 px-2">${u.created_at || '-'}</td>
+                <td class="py-3 px-2 font-mono">${Number(u.usage_count || 0).toLocaleString()}</td>
                 <td class="py-3 px-2 text-right font-mono font-bold text-blue-600">￥${Number(u.balance).toFixed(2)}</td>
+                <td class="py-3 px-2 text-right">
+                    <button class="btn-ops-user-detail px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100" data-user-id="${u.id}" data-username="${uname}">
+                        详情
+                    </button>
+                </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
+
+        // bind detail buttons
+        tbody.querySelectorAll('.btn-ops-user-detail').forEach(btn => {
+            btn.addEventListener('click', () => openOpsUserDailyUsage(btn.dataset.userId, btn.dataset.username));
+        });
         
         const total = data.total || 0;
         const totalPages = Math.ceil(total / 20) || 1;
@@ -68,7 +220,8 @@ async function loadOpsUsers(page) {
     } catch (e) {
         console.error(e);
         const tbody = document.getElementById('ops-users-tbody');
-        if(tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-red-400">加载失败: ' + e.message + '</td></tr>';
+        if(tbody) ensureOpsUsersTableColumns();
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-red-400">加载失败: ' + e.message + '</td></tr>';
     }
 }
 

@@ -1577,7 +1577,7 @@ async function handleAddHost() {
 }
 
 async function handleDeleteHost(id) {
-  if (!confirm('确认删除该主机？')) return;
+  if (!(await uiConfirm('确认删除该主机？'))) return;
   const res = await api(`/ssh/hosts/${id}`, 'DELETE');
   if (res?.message) alert(res.message);
   await loadHosts();
@@ -1671,7 +1671,7 @@ async function loadPrivateKB() {
 }
 
 async function handleDeleteKB(id) {
-  if (!confirm('确认删除该知识条目？')) return;
+  if (!(await uiConfirm('确认删除该知识条目？'))) return;
   const res = await api(`/kb/private/${id}`, 'DELETE');
   if (res?.message) alert(res.message);
   await loadPrivateKB();
@@ -2257,7 +2257,7 @@ async function handleShowReviewDetail(reviewId){
 
 async function handleApproveReview(){
   if (!currentReviewId) return;
-  const remark = prompt('请输入审核备注（可选）：') || '';
+  const remark = (await uiPrompt('请输入审核备注（可选）：', '审核备注')) || '';
   const token = authToken || localStorage.getItem('aio_token') || '';
   const res = await fetch(`/api/v1/admin/enterprise/reviews/${currentReviewId}/approve`, {
     method: 'POST',
@@ -2273,7 +2273,7 @@ async function handleApproveReview(){
 
 async function handleRejectReview(){
   if (!currentReviewId) return;
-  const remark = prompt('请输入拒绝原因（必填）：');
+  const remark = await uiPrompt('请输入拒绝原因（必填）：', '拒绝原因');
   if (!remark || !remark.trim()) return alert('拒绝原因不能为空');
   const token = authToken || localStorage.getItem('aio_token') || '';
   const res = await fetch(`/api/v1/admin/enterprise/reviews/${currentReviewId}/reject`, {
@@ -2575,6 +2575,7 @@ setTimeout(() => {
 }, 50);
 </script>
 
+<script src="/static/ui_dialog.js?v=1"></script>
 <script src="/static/cursor_style_patch.js?v=1766837471"></script>
 <script src="/static/host_mgmt_enhancement.js?v=1766832810"></script>
 <script src="/static/ops_dashboard.js?v=1766886524"></script>
