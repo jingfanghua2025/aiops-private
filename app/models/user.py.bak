@@ -1,0 +1,140 @@
+from sqlalchemy import create_engine, Column, Integer, String, Enum, Float, ForeignKey, DateTime, Text, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship
+import enum
+from datetime import datetime
+import os
+
+DATABASE_URL = 'mysql+pymysql://root:123qweQWE,./@127.0.0.1:3306/aiops'
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class UserTier(enum.Enum):
+    FREE = "free"
+    PRO = "pro"
+    ENTERPRISE = "enterprise"
+
+class RealNameStatus(enum.Enum):
+    NONE = "none"
+    PERSONAL = "personal"
+    ENTERPRISE = "enterprise"
+
+class PaymentMethod(enum.Enum):
+    WECHAT = "wechat"
+    ALIPAY = "alipay"
+
+class PaymentStatus(enum.Enum):
+    PENDING = "pending"
+    SUCCESS = "success"
+    FAILED = "failed"
+    CLOSED = "closed"
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(255), unique=True, index=True)
+    email = Column(String(255), unique=True, index=True)
+    phone = Column(String(255), unique=True, index=True, nullable=True)
+    hashed_password = Column(String(255))
+    tier = Column(Enum(UserTier), default=UserTier.FREE)
+    balance = Column(Float, default=300.0)  # 新用户默认300个算力值
+    total_tokens = Column(Integer, default=0)
+    
+    # 扩展字段
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_verified = Column(Boolean, default=False)
+    real_name_status = Column(Enum(RealNameStatus), default=RealNameStatus.NONE)
+    user_type = Column(String(255), default="个人用户") # 个人用户/企业用户
+    
+    # 绑定信息
+    wechat_id = Column(String(255), unique=True, nullable=True)
+    is_wechat_bound = Column(Boolean, default=False)
+    business_license_url = Column(String(255), nullable=True)
+    
+    hosts = relationship("SSHHost", back_populates="owner")
+    logs = relationship("UsageLog", back_populates="user")
+    sessions = relationship("ChatSession", back_populates="user")
+    private_kb = relationship("PrivateKB", back_populates="owner")
+
+class VerificationCode(Base):
+    __tablename__ = "verification_codes"
+    id = Column(Integer, primary_key=True, index=True)
+    target = Column(String(255), index=True) # email or phone
+    code = Column(String(255))
+    type = Column(String(255)) # 'email' or 'sms'
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class SSHHost(Base):
+    __tablename__ = "ssh_hosts"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255))
+    ip = Column(String(255))
+    port = Column(Integer, default=22)
+    username = Column(String(255))
+    password = Column(String(255))
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    owner = relationship("User", back_populates="hosts")
+
+class UsageLog(Base):
+    __tablename__ = "usage_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    task = Column(String(255))
+    tokens = Column(Integer)
+    cost = Column(Float)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", back_populates="logs")
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    title = Column(String(255))
+    content = Column(Text) # JSON string of messages
+    updated_at = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", back_populates="sessions")
+
+class PrivateKB(Base):
+    __tablename__ = "private_kb"
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    title = Column(String(255))
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    owner = relationship("User", back_populates="private_kb")
+
+class PaymentOrder(Base):
+    __tablename__ = "payment_orders"
+    id = Column(Integer, primary_key=True, index=True)
+    out_trade_no = Column(String(64), unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    method = Column(Enum(PaymentMethod))
+    amount = Column(Float)
+    status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
+    provider_trade_no = Column(String(128), nullable=True)
+    description = Column(String(255), default="账户充值")
+    request_payload = Column(Text, nullable=True)
+    notify_payload = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", backref="payment_orders")
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    from app.core.auth import get_password_hash
+    if not db.query(User).filter(User.username == "admin").first():
+        admin = User(
+            username="admin",
+            email="admin@opsgpt.com",
+            hashed_password=get_password_hash("admin@123A"),
+            tier=UserTier.ENTERPRISE,
+            balance=99.0,
+            user_type="企业用户",
+            is_verified=True,
+            real_name_status=RealNameStatus.ENTERPRISE
+        )
+        db.add(admin)
+        db.commit()
+    db.close()

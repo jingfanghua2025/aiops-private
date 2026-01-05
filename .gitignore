@@ -1,0 +1,10 @@
+.env
+.env.*
+keys/
+*.log
+logs/
+opsgpt.db
+*.sql
+token.txt
+__pycache__/
+*.pyc
