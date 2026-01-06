@@ -5,18 +5,34 @@ let executionHistory = []; // 用于存储当前会话的执行历史
 // 新增：重置会话（清空上下文）
 window.handleNewChat = async function() {
     if (!(await uiConfirm('确定要开启新会话吗？这将清空当前聊天记录和执行历史。', '开启新会话确认'))) return;
-    
-    // 重置全局历史数组
-    if (typeof window.opsHistory !== 'undefined') window.opsHistory = [];
-    if (typeof window.qaHistory !== 'undefined') window.qaHistory = [];
-    if (typeof window.codeHistory !== 'undefined') window.codeHistory = [];
-    
-    // 清空执行上下文
-    executionHistory = [];
-    
+
+    // 关键修复：不要用 `xxx = []` 替换引用，否则渲染仍可能引用旧数组
+    const clearArr = (arr) => {
+        try {
+            if (Array.isArray(arr)) arr.length = 0;
+        } catch (e) {}
+    };
+
+    // 清空三种模式的聊天历史（兼容 window 属性与全局 let 变量两种形式）
+    try { clearArr(opsHistory); } catch (e) {}
+    try { clearArr(qaHistory); } catch (e) {}
+    try { clearArr(codeHistory); } catch (e) {}
+
+    clearArr(window.opsHistory);
+    clearArr(window.qaHistory);
+    clearArr(window.codeHistory);
+
+    // 重新对齐 window 引用（避免后续代码只读 window.* 时不同步）
+    try { window.opsHistory = opsHistory; } catch (e) {}
+    try { window.qaHistory = qaHistory; } catch (e) {}
+    try { window.codeHistory = codeHistory; } catch (e) {}
+
+    // 清空执行上下文（同样原地清空）
+    clearArr(executionHistory);
+
     // 清空 Ops 模式的授权卡片状态
     if (typeof window.opsCards !== 'undefined') window.opsCards = {};
-    
+
     // 重新渲染
     if (typeof window.renderChat === 'function') window.renderChat();
 };
