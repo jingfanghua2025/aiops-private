@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>跃云 AIOps+ 用户手册</title>
+  <meta name="description" content="跃云 AIOps+ 用户手册：注册、登录、忘记密码、智能问答与排障部署、主机管理、知识库、充值与用量等功能说明。" />
+  <style>
+    :root{
+      --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#94a3b8; --line:#1f2937;
+      --pri:#22c55e; --link:#60a5fa; --code:#0b1020;
+    }
+    html,body{height:100%;}
+    body{margin:0;background:radial-gradient(1200px 600px at 30% -10%, rgba(96,165,250,.25), transparent 60%),radial-gradient(900px 500px at 90% 10%, rgba(34,197,94,.18), transparent 55%),var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}
+    .wrap{max-width:1080px;margin:0 auto;padding:28px 18px 56px;}
+    .top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px;}
+    .brand{display:flex;align-items:center;gap:10px;}
+    .brand img{width:32px;height:32px;border-radius:8px;background:#111827;border:1px solid rgba(255,255,255,.08)}
+    .brand .t{font-weight:800;letter-spacing:.2px}
+    .brand .sub{color:var(--muted);font-size:12px;margin-left:8px}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{appearance:none;border:1px solid rgba(255,255,255,.12);background:rgba(15,23,42,.65);color:var(--text);padding:10px 12px;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer}
+    .btn:hover{border-color:rgba(96,165,250,.55)}
+    .btn.pri{background:linear-gradient(135deg, rgba(34,197,94,.18), rgba(96,165,250,.10));border-color:rgba(34,197,94,.35)}
+    .card{border:1px solid rgba(255,255,255,.10);background:rgba(15,23,42,.68);backdrop-filter: blur(10px);border-radius:18px;overflow:hidden}
+    .bar{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+    .bar .hint{color:var(--muted);font-size:12px}
+    .content{padding:18px 18px 8px}
+    .err{color:#fecaca;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);padding:12px 14px;border-radius:14px;white-space:pre-wrap}
+    a{color:var(--link);text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    /* Markdown-ish */
+    .md h1,.md h2,.md h3{margin:18px 0 10px;line-height:1.25}
+    .md h1{font-size:28px}
+    .md h2{font-size:20px;margin-top:26px}
+    .md h3{font-size:16px;margin-top:18px;color:#dbeafe}
+    .md p{margin:10px 0;color:rgba(229,231,235,.94)}
+    .md ul,.md ol{margin:10px 0 14px 22px;color:rgba(229,231,235,.94)}
+    .md li{margin:6px 0}
+    .md blockquote{margin:12px 0;padding:10px 12px;border-left:3px solid rgba(96,165,250,.55);background:rgba(2,6,23,.35);border-radius:10px;color:rgba(229,231,235,.92)}
+    .md code{background:rgba(2,6,23,.55);border:1px solid rgba(255,255,255,.08);padding:2px 6px;border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:.92em}
+    .md pre{background:rgba(2,6,23,.65);border:1px solid rgba(255,255,255,.10);padding:12px 12px;border-radius:14px;overflow:auto}
+    .md pre code{background:transparent;border:0;padding:0}
+    .md hr{border:0;border-top:1px solid rgba(255,255,255,.10);margin:18px 0}
+    .md table{width:100%;border-collapse:collapse;margin:12px 0 18px}
+    .md th,.md td{border:1px solid rgba(255,255,255,.10);padding:8px 10px;font-size:13px}
+    .md th{background:rgba(2,6,23,.35)}
+
+    /* TOC */
+    .toc{padding:12px 16px;border:1px solid rgba(255,255,255,.10);border-radius:16px;background:rgba(2,6,23,.35);margin:0 0 14px}
+    .toc .tt{font-weight:800;margin-bottom:6px}
+    .toc a{display:inline-block;margin:6px 10px 0 0;color:rgba(229,231,235,.92)}
+    .toc a:hover{color:var(--link)}
+
+    .foot{color:var(--muted);font-size:12px;padding:12px 18px 18px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <img src="/static/logo.svg" alt="logo" onerror="this.style.display='none'" />
+        <div class="t">跃云 AIOps+ 用户手册 <span class="sub">（Markdown 版）</span></div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="location.reload()">刷新</button>
+        <button class="btn" onclick="window.print()">打印/导出 PDF</button>
+        <a class="btn pri" href="/" target="_blank" rel="noopener">打开官网</a>
+        <a class="btn pri" href="/console/" target="_blank" rel="noopener">打开控制台</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="bar">
+        <div>
+          <div style="font-weight:800">快速开始 → 复杂交付 → 规范化复用</div>
+          <div class="hint">建议先看“智能问答/排障部署”，再看“主机管理/知识库/充值与用量”。</div>
+        </div>
+        <div class="hint" id="loaded"></div>
+      </div>
+      <div class="content">
+        <div id="err" class="err" style="display:none"></div>
+        <div id="doc" class="md"></div>
+      </div>
+      <div class="foot">© <span id="y"></span> 跃云 YueYun · AIOps+（本页为静态手册，不采集你的输入内容）</div>
+    </div>
+  </div>
+
+  <!-- Marked.js: lightweight Markdown renderer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    document.getElementById('y').innerText = String(new Date().getFullYear());
+    function escHtml(s){return String(s).replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+
+    async function loadMd(){
+      const err = document.getElementById('err');
+      const doc = document.getElementById('doc');
+      try{
+        const res = await fetch('/static/user_manual.md', { cache: 'no-store' });
+        if(!res.ok) throw new Error('无法加载 user_manual.md：HTTP ' + res.status);
+        const md = await res.text();
+
+        // Generate a simple TOC (h2/h3)
+        const lines = md.split(/\r?\n/);
+        const toc = [];
+        for (const line of lines) {
+          const m = /^(##|###)\s+(.+)$/.exec(line);
+          if (!m) continue;
+          const level = m[1] === '##' ? 2 : 3;
+          const title = m[2].trim();
+          const id = title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g,'-').replace(/^-+|-+$/g,'');
+          toc.push({level, title, id});
+        }
+        const tocHtml = toc.length ? (
+          '<div class="toc"><div class="tt">目录</div>' +
+          toc.map(x => `<a href="#${escHtml(x.id)}">${escHtml(x.title)}</a>`).join('') +
+          '</div>'
+        ) : '';
+
+        marked.setOptions({ gfm: true, breaks: true });
+        const html = marked.parse(md);
+        doc.innerHTML = tocHtml + html;
+
+        // Add ids to headings
+        doc.querySelectorAll('h2, h3').forEach(h => {
+          const t = h.textContent.trim();
+          const id = t.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g,'-').replace(/^-+|-+$/g,'');
+          if (id) h.id = id;
+        });
+
+        document.getElementById('loaded').innerText = '已加载：/static/user_manual.md';
+      } catch(e){
+        err.style.display='block';
+        err.textContent = '用户手册加载失败：\n' + (e && e.message ? e.message : String(e));
+      }
+    }
+    loadMd();
+  </script>
+</body>
+</html>
