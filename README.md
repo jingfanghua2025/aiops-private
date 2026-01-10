@@ -33,3 +33,9 @@ sudo ./install.sh
 ### 安全
 
 - 不要提交 `.env`、任何私钥/证书、数据库真实 dump。
+
+
+## 部署方式
+
+- **Docker（推荐）**：`cd offline && sudo ./install.sh --mode docker`
+- **原生（systemd + venv）**：`cd offline && sudo ./install.sh --mode native`（默认使用 sqlite，适合无 Docker 环境）
