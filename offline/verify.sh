@@ -64,13 +64,13 @@ fi
 log "检查容器状态"
 docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 
-require "aiops-backend 容器存在" docker ps -a --format '{{.Names}}' | grep -qx aiops-backend
-require "aiops-mysql 容器存在" docker ps -a --format '{{.Names}}' | grep -qx aiops-mysql
-require "aiops-nginx 容器存在" docker ps -a --format '{{.Names}}' | grep -qx aiops-nginx
+require "aiops-backend 容器存在" bash -lc "docker ps -a --format '{{.Names}}' | grep -qx aiops-backend"
+require "aiops-mysql 容器存在" bash -lc "docker ps -a --format '{{.Names}}' | grep -qx aiops-mysql"
+require "aiops-nginx 容器存在" bash -lc "docker ps -a --format '{{.Names}}' | grep -qx aiops-nginx"
 
-require "aiops-backend 运行中" docker ps --format '{{.Names}}' | grep -qx aiops-backend
-require "aiops-mysql 运行中" docker ps --format '{{.Names}}' | grep -qx aiops-mysql
-require "aiops-nginx 运行中" docker ps --format '{{.Names}}' | grep -qx aiops-nginx
+require "aiops-backend 运行中" bash -lc "docker ps --format '{{.Names}}' | grep -qx aiops-backend"
+require "aiops-mysql 运行中" bash -lc "docker ps --format '{{.Names}}' | grep -qx aiops-mysql"
+require "aiops-nginx 运行中" bash -lc "docker ps --format '{{.Names}}' | grep -qx aiops-nginx"
 
 # ports
 log "检查端口监听"
