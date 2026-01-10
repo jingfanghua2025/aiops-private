@@ -12,6 +12,42 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _apply_db_overrides_from_system_settings() -> None:
+    """从数据库 system_settings 读取配置并覆盖到环境变量（优先级高于.env）。
+
+    纯离线环境下，管理员在后台保存的内网大模型接口信息应优先生效。
+    任何数据库不可用/异常都应静默降级为 env 配置。
+    """
+    try:
+        from app.models.user import SessionLocal
+        from app.models.system import SystemSetting
+
+        db = SessionLocal()
+        try:
+            keys = [
+                "AI_MODEL_PROVIDER",
+                "OPENAI_API_BASE",
+                "OPENAI_API_KEY",
+                "MODEL_NAME",
+                "DASHSCOPE_API_BASE",
+                "DASHSCOPE_API_KEY",
+                "DASHSCOPE_MODEL_NAME",
+            ]
+            rows = db.query(SystemSetting).filter(SystemSetting.key.in_(keys)).all()
+            mp = {r.key: (r.value or "").strip() for r in rows if r.value is not None}
+            for k, v in mp.items():
+                # 仅在有值时覆盖，避免把环境变量清空
+                if v:
+                    os.environ[k] = v
+        finally:
+            try:
+                db.close()
+            except Exception:
+                pass
+    except Exception:
+        return
+
+
 class AIService:
     """统一的AI服务，支持多个模型提供商"""
     
@@ -22,6 +58,7 @@ class AIService:
                                如果为None或'auto'，则根据环境变量自动选择
         """
         self.model_provider = model_provider or os.getenv("AI_MODEL_PROVIDER", "auto")
+        _apply_db_overrides_from_system_settings()
         self.llm = self._init_llm()  # 暴露llm属性供其他服务使用
     
     def _init_llm(self) -> BaseChatModel:

@@ -8,3 +8,8 @@ opsgpt.db
 token.txt
 __pycache__/
 *.pyc
+
+# private deploy build artifacts / local backups
+static/vendor/
+*.bak.*
+*.bak

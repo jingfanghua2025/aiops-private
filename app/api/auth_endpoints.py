@@ -12,10 +12,42 @@ import string
 import os
 import re
 import smtplib
+import unicodedata
 from email.mime.text import MIMEText
 from email.header import Header
 
 router = APIRouter()
+
+PRIVATE_DEPLOYMENT = os.getenv("PRIVATE_DEPLOYMENT", "false").lower() in ("1","true","yes","y")
+
+_FULLWIDTH_DIGIT_TRANS = str.maketrans("０１２３４５６７８９", "0123456789")
+
+
+def _strip_invisible(s: str) -> str:
+    """去除常见不可见/格式化字符（如零宽空格等），并去除两端空白。"""
+    s = (s or "").strip()
+    # 去掉 unicode 格式化字符（Cf），如 \u200b/\u200c/\u200d/\ufeff
+    return "".join(ch for ch in s if unicodedata.category(ch) != "Cf")
+
+
+def _normalize_email(email: str) -> str:
+    # 邮箱不应包含任何空白字符：全部移除后再 lower
+    email = _strip_invisible(email)
+    email = re.sub(r"\s+", "", email)
+    return email.lower()
+
+
+def _normalize_phone(phone: str) -> str:
+    phone = _strip_invisible(phone)
+    # 仅保留数字
+    return re.sub(r"\D+", "", phone)
+
+
+def _normalize_code(code: str) -> str:
+    code = _strip_invisible(code)
+    # 全角数字转半角，并仅保留数字
+    code = code.translate(_FULLWIDTH_DIGIT_TRANS)
+    return re.sub(r"\D+", "", code)
 
 
 def _send_email(to_email: str, subject: str, content: str):
@@ -70,7 +102,19 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     统一登录接口：支持账号/手机号/微信登录
     form_data.username 可以是：用户名、手机号、微信ID
     """
-    login_identifier = form_data.username.strip()
+    login_identifier = _strip_invisible(form_data.username).strip()
+    password = _strip_invisible(form_data.password).strip()
+
+    # 私有化部署：仅支持用户名+密码登录（关闭手机号/微信免密等）
+    if PRIVATE_DEPLOYMENT:
+        user = db.query(User).filter(User.username == login_identifier).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号不存在", headers={"WWW-Authenticate": "Bearer"})
+        if (not password) or (not verify_password(password, user.hashed_password)):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="密码错误", headers={"WWW-Authenticate": "Bearer"})
+        access_token = create_access_token(data={"sub": user.username, "tier": user.tier.value})
+        return {"access_token": access_token, "token_type": "bearer"}
+
     user = None
     
     # 1. 先尝试用户名登录
@@ -84,8 +128,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     if not user:
         user = db.query(User).filter(User.wechat_id == login_identifier).first()
         # 微信登录通常不需要密码，但如果提供了密码，也需要验证
-        if user and form_data.password and form_data.password != "":
-            if not verify_password(form_data.password, user.hashed_password):
+        if user and password and password != "":
+            if not verify_password(password, user.hashed_password):
                 user = None
     
     # 验证用户和密码
@@ -97,10 +141,10 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         )
     
     # 微信登录可以无密码，其他方式必须验证密码
-    if user.wechat_id == login_identifier and (not form_data.password or form_data.password == ""):
+    if user.wechat_id == login_identifier and (not password or password == ""):
         # 微信登录，无需密码验证
         pass
-    elif not verify_password(form_data.password, user.hashed_password):
+    elif not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="密码错误",
@@ -114,6 +158,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 
 @router.post("/send-email-code")
 async def send_email_code(email: str, db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     code = ''.join(random.choices(string.digits, k=6))
     
     # 保存验证码
@@ -173,10 +220,20 @@ class ResetPasswordSchema(BaseModel):
 
 @router.post("/send-reset-code")
 async def send_reset_code(req: ResetCodeSchema, db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     channel = (req.channel or '').strip().lower()
-    target = (req.target or '').strip()
+    target_raw = (req.target or '')
+    target = _strip_invisible(target_raw)
     if channel not in ('email','sms'):
         raise HTTPException(status_code=400, detail='channel 仅支持 email / sms')
+
+    # 统一邮箱大小写：避免同一邮箱因大小写不一致导致验证码无法匹配
+    if channel == 'email':
+        target = _normalize_email(target)
+    else:
+        target = _normalize_phone(target)
 
     # 频控：同一 target 60s 一次
     vc_type = 'email_reset' if channel == 'email' else 'sms_reset'
@@ -227,10 +284,15 @@ async def send_reset_code(req: ResetCodeSchema, db: Session = Depends(get_db)):
 
 @router.post("/reset-password")
 async def reset_password(req: ResetPasswordSchema, db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     channel = (req.channel or '').strip().lower()
-    target = (req.target or '').strip()
-    code = (req.code or '').strip()
-    new_password = (req.new_password or '').strip()
+    target_raw = (req.target or '')
+    target = _strip_invisible(target_raw)
+    code = _normalize_code(req.code or '')
+    # 与登录保持一致：去除不可见字符与首尾空白，避免复制粘贴导致“重置成功但登录失败”
+    new_password = _strip_invisible(req.new_password or '').strip()
 
     if channel not in ('email','sms'):
         raise HTTPException(status_code=400, detail='channel 仅支持 email / sms')
@@ -240,6 +302,10 @@ async def reset_password(req: ResetPasswordSchema, db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail='新密码至少 8 位')
 
     vc_type = 'email_reset' if channel == 'email' else 'sms_reset'
+    if channel == 'email':
+        target = _normalize_email(target)
+    else:
+        target = _normalize_phone(target)
 
     # 找用户
     if channel == 'email':
@@ -257,6 +323,16 @@ async def reset_password(req: ResetPasswordSchema, db: Session = Depends(get_db)
         VerificationCode.created_at > datetime.utcnow() - timedelta(minutes=10)
     ).order_by(VerificationCode.created_at.desc()).first()
 
+    # 兼容历史验证码类型：老前端/旧接口可能写入 email/sms 类型
+    if not vc:
+        legacy_type = 'email' if channel == 'email' else 'sms'
+        vc = db.query(VerificationCode).filter(
+            VerificationCode.target == target,
+            VerificationCode.code == code,
+            VerificationCode.type == legacy_type,
+            VerificationCode.created_at > datetime.utcnow() - timedelta(minutes=10)
+        ).order_by(VerificationCode.created_at.desc()).first()
+
     if not vc:
         raise HTTPException(status_code=400, detail='验证码错误或已过期')
 
@@ -270,6 +346,9 @@ async def reset_password(req: ResetPasswordSchema, db: Session = Depends(get_db)
     return {"message": "密码已重置，请使用新密码登录"}
 @router.post("/register")
 async def register(reg: RegisterSchema, db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     # 验证码校验
     vc = db.query(VerificationCode).filter(
         VerificationCode.target == reg.email,
@@ -331,6 +410,9 @@ async def login_sms(phone: str, code: str, db: Session = Depends(get_db)):
 
 @router.post("/wechat-login")
 async def wechat_login(wechat_id: str, db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     """微信登录（保留原有接口，兼容性）"""
     user = db.query(User).filter(User.wechat_id == wechat_id).first()
     if not user:

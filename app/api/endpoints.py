@@ -37,6 +37,8 @@ import json
 import requests
 from bs4 import BeautifulSoup
 import os
+
+PRIVATE_DEPLOYMENT = os.getenv("PRIVATE_DEPLOYMENT", "false").lower() in ("1","true","yes","y")
 import shutil
 import random
 import string
@@ -603,6 +605,9 @@ async def reject_enterprise_review(
 
 @router.post("/user/bind-wechat")
 async def bind_wechat(wechat_id: str, force: bool = False, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     wechat_id = (wechat_id or '').strip()
     if not wechat_id:
         raise HTTPException(status_code=400, detail="wechat_id 不能为空")
@@ -669,6 +674,9 @@ async def bind_phone(phone: str, code: str, user: User = Depends(get_current_use
 # --- Dashboard Stats ---
 @router.get("/dashboard/stats")
 async def get_stats(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     host_count = db.query(SSHHost).filter(SSHHost.owner_id == user.id).count()
     usage_count = db.query(UsageLog).filter(UsageLog.user_id == user.id).count()
     kb_count = db.query(PrivateKB).filter(PrivateKB.owner_id == user.id).count()
@@ -910,6 +918,9 @@ def _mark_order_paid(order: PaymentOrder, db: Session, trade_no: str, raw: dict 
 
 @router.post("/usage/recharge")
 async def recharge(amount: float, method: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     """旧版演示充值接口，默认关闭，避免绕过真实支付流程。"""
     if not ALLOW_DEMO_RECHARGE:
         raise HTTPException(status_code=400, detail="请使用新的充值接口 /api/v1/usage/recharge/order")
@@ -921,6 +932,9 @@ async def recharge(amount: float, method: str, user: User = Depends(get_current_
 
 @router.post("/usage/recharge/order")
 async def create_recharge_order(req: RechargeOrderSchema, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     amount = round(req.amount, 2)
     if amount <= 0:
         raise HTTPException(status_code=400, detail="充值金额必须大于 0")
@@ -968,6 +982,9 @@ async def create_recharge_order(req: RechargeOrderSchema, request: Request, user
 
 @router.get("/usage/recharge/order/{order_no}")
 async def query_recharge_order(order_no: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     order = db.query(PaymentOrder).filter(
         PaymentOrder.out_trade_no == order_no,
         PaymentOrder.user_id == user.id
@@ -986,6 +1003,9 @@ async def query_recharge_order(order_no: str, user: User = Depends(get_current_u
 
 @router.post("/usage/recharge/order/{order_no}/sync")
 async def sync_recharge_order(order_no: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     """Sync order status by querying provider (for callback delay/loss).
 
     - Only the order owner can sync; admin can sync any order.
@@ -1053,6 +1073,9 @@ async def sync_recharge_order(order_no: str, user: User = Depends(get_current_us
 
 @router.post("/payment/notify/wechat")
 async def wechat_notify(request: Request, db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     body = await request.body()
     # 直接使用 Starlette Headers（大小写不敏感），避免转成 dict 后 header key 大小写敏感导致验签取不到 wechatpay-signature-type
     headers = request.headers
@@ -1090,6 +1113,9 @@ async def wechat_notify(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/payment/notify/alipay")
 async def alipay_notify(request: Request, db: Session = Depends(get_db)):
+    if PRIVATE_DEPLOYMENT:
+        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
+
     form = await request.form()
     data = dict(form)
     signature = data.pop("sign", None)

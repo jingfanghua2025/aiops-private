@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AIOps+ | 智能运维专家</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="/static/vendor/tailwind/tailwindcss.js"></script>
+    <link href="/static/vendor/fontawesome/css/all.min.css" rel="stylesheet">
+    <script src="/static/vendor/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="/static/vendor/highlight/github-dark.min.css">
+    <script src="/static/vendor/highlight/highlight.min.js"></script>
+    <script src="/static/vendor/echarts/echarts.min.js"></script>
     <script src="/static/cursor_style.js?v=1766496670"></script>
     <style>
         body { font-size: 0.875rem; }
@@ -156,7 +156,7 @@
         <!-- Sidebar -->
         <aside class="w-64 bg-white border-r border-slate-200 flex flex-col z-40">
             <div class="p-6 flex items-center gap-3">
-                <img src="/static/logo.svg" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=AIOps%2B&background=2563EB&color=fff';" class="w-8 h-8 rounded-lg" alt="Logo">
+                <img src="/static/logo.svg"  class="w-8 h-8 rounded-lg" alt="Logo">
                 <span class="text-lg font-bold tracking-tight">AIOps+</span>
             </div>
 
@@ -181,9 +181,6 @@
                 </a>
                 <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('usage', this)">
                     <i class="fas fa-list w-5 opacity-70"></i><span class="font-semibold ml-2">用量明细</span>
-                </a>
-                <a id="nav-ops" href="javascript:void(0)" class="sidebar-item hidden flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('ops', this)">
-                    <i class="fas fa-chart-line w-5 opacity-70"></i><span class="font-semibold ml-2">运营看板</span>
                 </a>
                 <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('profile', this)">
                     <i class="fas fa-user w-5 opacity-70"></i><span class="font-semibold ml-2">个人信息</span>
@@ -1037,7 +1034,6 @@ const SECTION_TITLES = {
   usage: '用量明细',
   profile: '个人信息',
   contact: '联系我们',
-  ops: '运营看板',
 };
 
 
@@ -1084,29 +1080,6 @@ function showSection(section, el) {
     if (section === 'ssh') loadHosts();
     if (section === 'knowledge') loadPrivateKB();
     if (section === 'profile') updateProfile();
-        if (section === 'ops') {
-      // 直接加载运营看板数据
-      (async function() {
-        try {
-          const data = await api('/admin/ops/overview');
-          if (data) {
-            setText('ops-total-users', (data.total_users || 0).toString());
-            setText('ops-personal-users', (data.personal_users || 0).toString());
-            setText('ops-enterprise-users', (data.enterprise_users || 0).toString());
-            setText('ops-today-registrations', (data.today_registrations || 0).toString());
-            setText('ops-today-revenue', '￥' + (data.today_revenue || 0).toFixed(2));
-            setText('ops-week-revenue', '￥' + (data.week_revenue || 0).toFixed(2));
-            setText('ops-month-revenue', '￥' + (data.month_revenue || 0).toFixed(2));
-            
-            // 渲染图表
-            if (typeof echarts !== 'undefined') {
-              const regChartEl = document.getElementById('ops-registrations-chart');
-              if (regChartEl) {
-                if (!window.opsRegistrationsChart) {
-                  window.opsRegistrationsChart = echarts.init(regChartEl, null, {
-                    devicePixelRatio: window.devicePixelRatio || 1
-                  });
-                }
                 const labels = [];
                 for (let i = 29; i >= 0; i--) {
                   const date = new Date();
@@ -1158,7 +1131,6 @@ function showSection(section, el) {
             }
           }
         } catch (error) {
-          console.error('[运营看板] 加载失败:', error);
         }
       })();
     }
@@ -1504,8 +1476,6 @@ async function updateProfile() {
 
   const bal = Number(data.balance ?? 0).toFixed(2);
   setText('sidebar-balance', '￥' + bal);
-  
-  // 显示/隐藏运营看板菜单（仅管理员可见）
   const navOps = document.getElementById('nav-ops');
   if (navOps) {
     if (data.is_admin) {
@@ -2579,5 +2549,7 @@ setTimeout(() => {
 <script src="/static/cursor_style_patch.js?v=1766837471"></script>
 <script src="/static/host_mgmt_enhancement.js?v=1766832810"></script>
 <script src="/static/ops_dashboard.js?v=1766886524"></script>
+
+<script src="/static/private_deploy_patch.js?v=2"></script>
 </body>
 </html>

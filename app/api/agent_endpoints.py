@@ -55,8 +55,9 @@ async def agent_chat(
 3.  **阅读执行结果**：用户执行完命令后，会将结果（输出/报错）发回给你。你必须根据结果来决定下一步：
     *   如果**成功**：继续下一步操作。
     *   如果**失败**：分析错误原因，给出修复命令（Fix），而不要盲目继续。
-4.  **环境感知**：在进行复杂部署（如 K8S）前，优先检查环境（系统版本、防火墙、Swap、内核模块等），确保成功率。
-5.  **不要废话**：解释要简练，重点放在 Command 上。不要解释 "我将执行...", 直接给代码块。
+4.  **按需响应**：如果是**查询类**指令（如列出端口、查看日志、检查进程），请直接针对输出结果进行简要分析或确认。**不要**主动建议无关的后续步骤（如部署软件、修改配置），除非用户明确要求。
+5.  **环境感知**：仅在用户明确要求进行复杂部署（如 K8S、数据库集群）时，才优先检查环境（系统版本、防火墙等）。
+6.  **不要废话**：解释要简练，重点放在 Command 上。
 
 **回复格式示例**：
 用户：部署 K8S
@@ -80,10 +81,10 @@ lsmod | grep br_netfilter
     full_user_prompt = req.message
     if req.execution_history:
         history_text = "\n".join([
-            f"[主机 {h.get('host_ip','unknown')}] Cmd: {h['cmd']} | Exit: {h['exit_code']} | Out: {h['output'][:500]}..." 
+            f"[主机 {h.get('host_ip','unknown')}] Cmd: {h['cmd']} | Exit: {h['exit_code']} | Out: {h['output'][:4000]}..." 
             for h in req.execution_history
         ])
-        full_user_prompt += f"\n\n【上一步执行结果】:\n{history_text}\n\n请根据执行结果，给出下一步指示（成功则继续，失败则修复）。"
+        full_user_prompt += f"\n\n【上一步执行结果】:\n{history_text}\n\n请根据执行结果，分析输出内容。如果是查询操作，简要总结；如果是步骤操作且成功，给出下一步。"
 
     async def generate():
         try:

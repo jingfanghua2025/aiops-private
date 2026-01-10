@@ -1,13 +1,15 @@
 from sqlalchemy import create_engine, Column, Integer, String, Enum, Float, ForeignKey, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker, relationship
 import enum
 from datetime import datetime
+import time
 import os
 
 import os
 DATABASE_URL = os.getenv('DATABASE_URL', 'mysql+pymysql://root:123qweQWE,./@127.0.0.1:3306/aiops')
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -169,7 +171,23 @@ class EnterpriseProfile(Base):
     reviewer = relationship("User", foreign_keys=[reviewer_id])
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    # 注册 system 模型（license / system_settings）
+    try:
+        import app.models.system  # noqa: F401
+    except Exception:
+        pass
+    DB_INIT_MAX_WAIT = int(os.getenv("DB_INIT_MAX_WAIT", "120"))
+    start = time.time()
+    last_exc = None
+    while True:
+        try:
+            Base.metadata.create_all(bind=engine)
+            break
+        except OperationalError as exc:
+            last_exc = exc
+            if time.time() - start > DB_INIT_MAX_WAIT:
+                raise
+            time.sleep(2)
     db = SessionLocal()
     from app.core.auth import get_password_hash
     if not db.query(User).filter(User.username == "admin").first():

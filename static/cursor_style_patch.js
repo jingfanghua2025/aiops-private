@@ -64,7 +64,7 @@ async function handleInlineExecute(btn) {
       const code = (res && typeof res.exit_status !== 'undefined') ? res.exit_status : -1;
       
       const output = (out + (err ? `\n${err}` : '')).trim() || '(无输出)';
-      const MAX_LOG_LEN = 2000; 
+      const MAX_LOG_LEN = 10000; 
       const truncatedOutput = output.length > MAX_LOG_LEN 
           ? output.substring(0, MAX_LOG_LEN) + '\n...(截断)...' 
           : output;
@@ -316,6 +316,11 @@ function renderChat() {
             bubble.querySelectorAll('pre code').forEach((el) => {
                 hljs.highlightElement(el);
                 
+                // 优化：为代码块增加滚动条限制，避免长输出刷屏
+                if (el.parentElement && el.parentElement.tagName === 'PRE') {
+                    el.parentElement.classList.add('max-h-[500px]', 'overflow-y-auto');
+                }
+
                 // Ops 模式下，为 bash 代码块添加运行按钮 (仅 Assistant 消息)
                 if (m.role === 'assistant' && chatMode === 'ops' && (el.classList.contains('language-bash') || el.classList.contains('language-shell'))) {
                     const btnDiv = document.createElement('div');

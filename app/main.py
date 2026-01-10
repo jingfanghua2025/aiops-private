@@ -3,8 +3,36 @@ import sys
 
 from dotenv import load_dotenv
 
+
+def _load_env() -> None:
+    """
+    兼容多种私有化部署路径：
+    - 优先使用 AIOPS_ENV_FILE 指定的 .env
+    - 否则依次尝试：/data/aiops/.env、/opt/aiops/.env、项目根目录下 .env
+    """
+    candidates: list[str] = []
+    env_file = os.getenv("AIOPS_ENV_FILE")
+    if env_file:
+        candidates.append(env_file)
+    candidates.extend(
+        [
+            "/data/aiops/.env",
+            "/opt/aiops/.env",
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),
+        ]
+    )
+    for p in candidates:
+        try:
+            if p and os.path.exists(p):
+                load_dotenv(dotenv_path=p)
+                return
+        except Exception:
+            # 环境加载失败不应阻断启动，交由后续配置校验处理
+            continue
+
+
 # 注意：必须在导入任何 app.api.*（会触发服务初始化）之前加载 .env
-load_dotenv(dotenv_path="/data/aiops/.env")
+_load_env()
 
 from app.models.user import init_db
 
@@ -21,6 +49,7 @@ from app.api.auth_endpoints import router as auth_router
 from app.api.cloud_endpoints import router as cloud_router
 from app.api.endpoints import router as api_router
 from app.api.streaming_endpoints import router as streaming_router
+from app.api.system_endpoints import router as system_router
 
 app = FastAPI(title="AIOps+ Real AI Engine")
 
@@ -37,6 +66,8 @@ app.include_router(api_router, prefix="/api/v1", tags=["Ops"])
 app.include_router(streaming_router, prefix="/api/v1", tags=["Streaming"])
 app.include_router(agent_router, prefix="/api/v1", tags=["Agent"])
 app.include_router(cloud_router, prefix="/api/v1", tags=["Cloud"])
+
+app.include_router(system_router, prefix="/api/v1/system", tags=["System"])
 
 import logging
 
@@ -82,3 +113,26 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "alive", "engine": "GPT-4o"}
+
+
+# ---- License middleware (offline / private deployment) ----
+from app.core.license import ensure_license_state, is_request_exempt, license_block_response
+
+
+@app.middleware("http")
+async def license_middleware(request, call_next):
+    # 静态资源与免检路径直接放行
+    if is_request_exempt(request.url.path):
+        return await call_next(request)
+
+    # 确保存在 trial/license 状态，并判断是否允许访问
+    try:
+        ok, detail = ensure_license_state()
+        if not ok:
+            return license_block_response(detail=detail)
+    except Exception as exc:
+        # 授权模块异常时给出明确错误，避免无响应
+        logger.error(f"License check error: {exc}", exc_info=True)
+        return JSONResponse(status_code=500, content={"detail": "License模块异常，请联系管理员"})
+
+    return await call_next(request)
