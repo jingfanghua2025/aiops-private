@@ -1,0 +1,4 @@
+# 如果你希望把大文件也放进仓库，建议启用 Git LFS
+# git lfs install
+# git lfs track "offline/images/*.tar"
+# git lfs track "offline/packages/**"

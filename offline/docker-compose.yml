@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  backend:
+    image: aiops-backend:offline
+    container_name: aiops-backend
+    restart: always
+    env_file:
+      - ./config/aiops.env
+    environment:
+      - DATABASE_URL=mysql+pymysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/aiops
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+    volumes:
+      - ./logs:/app/logs
+      - ./static:/app/static
+      - ./keys:/app/keys
+
+  mysql:
+    image: mysql:8.0
+    container_name: aiops-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: aiops
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/db_dump.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
+
+  nginx:
+    image: nginx:latest
+    container_name: aiops-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./www:/usr/share/nginx/html:ro
+      - ./certs:/etc/letsencrypt:ro
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

@@ -1,0 +1,15 @@
+# secrets
+.env
+*.pem
+certs/
+
+# local runtime
+logs/
+mysql_data/
+
+# large offline artifacts (建议用 Git LFS 或 Releases)
+offline/images/*.tar
+offline/packages/**
+
+# misc
+.DS_Store
