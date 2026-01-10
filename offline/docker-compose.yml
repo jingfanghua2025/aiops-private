@@ -27,7 +27,7 @@ services:
       MYSQL_DATABASE: aiops
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./db/db_dump.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./db:/docker-entrypoint-initdb.d:ro
     ports:
       - "3306:3306"
 

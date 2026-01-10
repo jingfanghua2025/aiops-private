@@ -101,6 +101,22 @@ prepare_runtime_files() {
   fi
 }
 
+write_compose_env() {
+  # docker compose 变量替换只读取同目录 .env，不会读取 service env_file
+  # 这里从 config/aiops.env 提取 MYSQL_ROOT_PASSWORD 写入 .env（不写入其他敏感项）
+  local env_file="$ROOT_DIR/config/aiops.env"
+  local pw=""
+  if [[ -f "$env_file" ]]; then
+    pw=$(grep -E "^MYSQL_ROOT_PASSWORD=" "$env_file" | head -n1 | cut -d= -f2- || true)
+  fi
+  if [[ -z "$pw" ]]; then
+    pw="ChangeMe_123"
+    echo "MYSQL_ROOT_PASSWORD=$pw" >> "$env_file"
+  fi
+  printf "MYSQL_ROOT_PASSWORD=%s\n" "$pw" > "$ROOT_DIR/.env"
+  chmod 600 "$ROOT_DIR/.env" || true
+}
+
 compose_up() {
   log "启动服务（docker compose up -d）"
   if docker compose version >/dev/null 2>&1; then
@@ -132,6 +148,7 @@ main() {
   log "AIOps 私有化离线一键部署开始（适配 Ubuntu/CentOS）"
   ensure_docker
   prepare_runtime_files
+  write_compose_env
   load_images
   compose_up
   healthcheck || die "健康检查失败，请查看 logs/install.log 与 docker logs"

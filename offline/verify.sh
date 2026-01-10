@@ -12,6 +12,18 @@ curl_json(){
   curl -fsS --max-time 5 "$url"
 }
 
+retry_health(){
+  local url="$1"
+  local tries="${2:-30}"
+  for i in $(seq 1 "$tries"); do
+    if curl -fsS --max-time 3 "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
 require(){
   local msg="$1"
   shift
@@ -70,8 +82,8 @@ fi
 
 # health
 log "检查 /health"
-require "/health (nginx 80) 可访问" curl -fsS --max-time 5 http://127.0.0.1/health >/dev/null
-require "/health (backend 8000) 可访问" curl -fsS --max-time 5 http://127.0.0.1:8000/health >/dev/null
+require "/health (nginx 80) 可访问" retry_health http://127.0.0.1/health 60
+require "/health (backend 8000) 可访问" retry_health http://127.0.0.1:8000/health 60
 
 # public info
 log "检查 /api/v1/system/public"
