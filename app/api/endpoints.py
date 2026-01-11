@@ -37,8 +37,6 @@ import json
 import requests
 from bs4 import BeautifulSoup
 import os
-
-PRIVATE_DEPLOYMENT = os.getenv("PRIVATE_DEPLOYMENT", "false").lower() in ("1","true","yes","y")
 import shutil
 import random
 import string
@@ -75,6 +73,9 @@ TROUBLESHOOT_BASE_POINTS = 5          # 标准一次排障计划消耗5点（约
 EXTRA_RETRY_POINTS = 3                # 额外自动修正消耗3点
 LONG_CONTEXT_POINTS = 2               # 超长上下文/日志附加点
 
+# 私有化部署：不做算力点/余额限制（不扣费、不返回402）
+PRIVATE_DEPLOYMENT = os.getenv("PRIVATE_DEPLOYMENT", "false").lower() in ("1", "true", "yes", "y")
+
 def get_db():
     db = SessionLocal()
     try: yield db
@@ -88,6 +89,90 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         if user is None: raise HTTPException(status_code=401)
         return user
     except: raise HTTPException(status_code=401)
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if not getattr(user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="仅管理员可操作")
+    return user
+
+# ---- License approval proxy (binds to old-system admin) ----
+LICENSE_SERVICE_BASE_URL = os.getenv("LICENSE_SERVICE_BASE_URL", "http://127.0.0.1:9001").rstrip("/")
+LICENSE_SERVICE_PREFIX = os.getenv("LICENSE_SERVICE_PREFIX", "/api/license").strip()
+if LICENSE_SERVICE_PREFIX and not LICENSE_SERVICE_PREFIX.startswith("/"):
+    LICENSE_SERVICE_PREFIX = "/" + LICENSE_SERVICE_PREFIX
+LICENSE_ADMIN_TOKEN = os.getenv("LICENSE_ADMIN_TOKEN", "").strip()
+
+def _license_headers() -> dict:
+    if not LICENSE_ADMIN_TOKEN:
+        raise HTTPException(status_code=500, detail="LICENSE_ADMIN_TOKEN 未配置")
+    return {"Authorization": f"Bearer {LICENSE_ADMIN_TOKEN}"}
+
+def _license_url(path: str) -> str:
+    if not path.startswith("/"):
+        path = "/" + path
+    return f"{LICENSE_SERVICE_BASE_URL}{path}"
+
+class LicenseApproveReq(BaseModel):
+    days: int = 365
+
+@router.get("/admin/license/applications")
+async def admin_license_list(_: User = Depends(require_admin)):
+    try:
+        r = requests.get(
+            _license_url(f"{LICENSE_SERVICE_PREFIX}/admin/applications"),
+            headers=_license_headers(),
+            timeout=10,
+        )
+        if r.status_code >= 400:
+            raise HTTPException(status_code=502, detail=f"license服务错误: {r.status_code}")
+        return r.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+@router.post("/admin/license/applications/{application_id}/approve")
+async def admin_license_approve(application_id: int, req: LicenseApproveReq, _: User = Depends(require_admin)):
+    try:
+        r = requests.post(
+            _license_url(f"{LICENSE_SERVICE_PREFIX}/admin/applications/{int(application_id)}/approve"),
+            headers={**_license_headers(), "Content-Type": "application/json"},
+            json={"days": int(req.days or 365)},
+            timeout=15,
+        )
+        if r.status_code >= 400:
+            # forward a short error body if possible
+            try:
+                detail = r.json()
+            except Exception:
+                detail = r.text[:200]
+            raise HTTPException(status_code=502, detail={"status": r.status_code, "detail": detail})
+        return r.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+@router.post("/admin/license/applications/{application_id}/reject")
+async def admin_license_reject(application_id: int, reason: str = "", _: User = Depends(require_admin)):
+    try:
+        r = requests.post(
+            _license_url(f"{LICENSE_SERVICE_PREFIX}/admin/applications/{int(application_id)}/reject"),
+            headers=_license_headers(),
+            params={"reason": reason or ""},
+            timeout=15,
+        )
+        if r.status_code >= 400:
+            try:
+                detail = r.json()
+            except Exception:
+                detail = r.text[:200]
+            raise HTTPException(status_code=502, detail={"status": r.status_code, "detail": detail})
+        return r.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 # --- Schemas ---
 class SSHHostSchema(BaseModel):
@@ -605,9 +690,6 @@ async def reject_enterprise_review(
 
 @router.post("/user/bind-wechat")
 async def bind_wechat(wechat_id: str, force: bool = False, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if PRIVATE_DEPLOYMENT:
-        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
-
     wechat_id = (wechat_id or '').strip()
     if not wechat_id:
         raise HTTPException(status_code=400, detail="wechat_id 不能为空")
@@ -674,9 +756,6 @@ async def bind_phone(phone: str, code: str, user: User = Depends(get_current_use
 # --- Dashboard Stats ---
 @router.get("/dashboard/stats")
 async def get_stats(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if PRIVATE_DEPLOYMENT:
-        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
-
     host_count = db.query(SSHHost).filter(SSHHost.owner_id == user.id).count()
     usage_count = db.query(UsageLog).filter(UsageLog.user_id == user.id).count()
     kb_count = db.query(PrivateKB).filter(PrivateKB.owner_id == user.id).count()
@@ -918,9 +997,6 @@ def _mark_order_paid(order: PaymentOrder, db: Session, trade_no: str, raw: dict 
 
 @router.post("/usage/recharge")
 async def recharge(amount: float, method: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if PRIVATE_DEPLOYMENT:
-        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
-
     """旧版演示充值接口，默认关闭，避免绕过真实支付流程。"""
     if not ALLOW_DEMO_RECHARGE:
         raise HTTPException(status_code=400, detail="请使用新的充值接口 /api/v1/usage/recharge/order")
@@ -932,9 +1008,6 @@ async def recharge(amount: float, method: str, user: User = Depends(get_current_
 
 @router.post("/usage/recharge/order")
 async def create_recharge_order(req: RechargeOrderSchema, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if PRIVATE_DEPLOYMENT:
-        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
-
     amount = round(req.amount, 2)
     if amount <= 0:
         raise HTTPException(status_code=400, detail="充值金额必须大于 0")
@@ -982,9 +1055,6 @@ async def create_recharge_order(req: RechargeOrderSchema, request: Request, user
 
 @router.get("/usage/recharge/order/{order_no}")
 async def query_recharge_order(order_no: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if PRIVATE_DEPLOYMENT:
-        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
-
     order = db.query(PaymentOrder).filter(
         PaymentOrder.out_trade_no == order_no,
         PaymentOrder.user_id == user.id
@@ -1003,9 +1073,6 @@ async def query_recharge_order(order_no: str, user: User = Depends(get_current_u
 
 @router.post("/usage/recharge/order/{order_no}/sync")
 async def sync_recharge_order(order_no: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if PRIVATE_DEPLOYMENT:
-        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
-
     """Sync order status by querying provider (for callback delay/loss).
 
     - Only the order owner can sync; admin can sync any order.
@@ -1073,9 +1140,6 @@ async def sync_recharge_order(order_no: str, user: User = Depends(get_current_us
 
 @router.post("/payment/notify/wechat")
 async def wechat_notify(request: Request, db: Session = Depends(get_db)):
-    if PRIVATE_DEPLOYMENT:
-        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
-
     body = await request.body()
     # 直接使用 Starlette Headers（大小写不敏感），避免转成 dict 后 header key 大小写敏感导致验签取不到 wechatpay-signature-type
     headers = request.headers
@@ -1113,9 +1177,6 @@ async def wechat_notify(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/payment/notify/alipay")
 async def alipay_notify(request: Request, db: Session = Depends(get_db)):
-    if PRIVATE_DEPLOYMENT:
-        raise HTTPException(status_code=404, detail="私有化部署已关闭该功能")
-
     form = await request.form()
     data = dict(form)
     signature = data.pop("sign", None)
@@ -1180,24 +1241,25 @@ async def propose_ops(req: ProposeSchema, user: User = Depends(get_current_user)
     """
     host = db.query(SSHHost).filter(SSHHost.id == req.host_id, SSHHost.owner_id == user.id).first()
     if not host: raise HTTPException(status_code=404)
-    # 计费：排障计划消耗算力点
-    if user.balance < TROUBLESHOOT_BASE_POINTS:
-        raise HTTPException(
-            status_code=402, 
-            detail="您好，您的算力不足，请充值算力。方案咨询和代码编写永久免费，排障与部署扣算力点收费。"
+    # 计费：排障计划消耗算力点（私有化部署不限制、不扣费）
+    deducted_points = 0
+    if not PRIVATE_DEPLOYMENT:
+        if user.balance < TROUBLESHOOT_BASE_POINTS:
+            raise HTTPException(
+                status_code=402,
+                detail="您好，您的算力不足，请充值算力。方案咨询和代码编写永久免费，排障与部署扣算力点收费。"
+            )
+        user.balance -= TROUBLESHOOT_BASE_POINTS
+        deducted_points = TROUBLESHOOT_BASE_POINTS
+        log = UsageLog(
+            user_id=user.id,
+            task=f"排障计划: {req.task[:60]}",
+            cost=TROUBLESHOOT_BASE_POINTS,
         )
-    user.balance -= TROUBLESHOOT_BASE_POINTS
-    log = UsageLog(
-        user_id=user.id,
-        task=f"排障计划: {req.task[:60]}",
-        cost=TROUBLESHOOT_BASE_POINTS,
-    )
-    db.add(log)
-    db.commit()
-    
-    # 检查余额是否不足，给用户提示
-    if user.balance < TROUBLESHOOT_BASE_POINTS:
-        logger.info(f"用户 {user.id} 算力余额不足，当前余额: {user.balance}")
+        db.add(log)
+        db.commit()
+        if user.balance < TROUBLESHOOT_BASE_POINTS:
+            logger.info(f"用户 {user.id} 算力余额不足，当前余额: {user.balance}")
     # 使用增强的SSH服务（支持对话上下文和更精确的命令生成）
     plan = await enhanced_ssh_service.generate_plan(
         task_description=req.task,
@@ -1230,7 +1292,7 @@ async def propose_ops(req: ProposeSchema, user: User = Depends(get_current_user)
     return {
         "host_ip": host.ip, 
         "plan": validated_plan, 
-        "deducted_points": TROUBLESHOOT_BASE_POINTS,
+        "deducted_points": deducted_points,
         "conversation_id": req.conversation_id  # 返回对话ID供前端使用
     }
 
