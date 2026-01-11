@@ -21,6 +21,13 @@
 
 ```bash
 cd /opt/aiops/offline
+chmod +x *.sh
+
+# 如果通过 GitHub Release 交付离线镜像包/原生依赖包（推荐）：
+# 私有仓库下载需要 token（repo 读取权限）
+export GH_TOKEN=xxxxx
+./download_release.sh --tag latest
+
 cp .env.example .env
 cp config/aiops.env.example config/aiops.env
 
@@ -39,7 +46,12 @@ sudo ./install.sh
 
 为避免 GitHub 仓库膨胀：
 
-- **镜像离线包**：放在 GitHub Release 或 Git LFS（`offline/images/*.tar*`）
-- **原生部署 wheelhouse/app.tar.gz**：同上（`offline/native/`）
+- **镜像离线包**：放在 GitHub Release（推荐）或 Git LFS（`offline/images/*.tar*`）
+- **原生部署 wheelhouse/app.tar.gz**：同上（`offline/native/`，可选）
 - **密钥文件**：不要进仓库（`keys/*.pem`），现场导入或通过管理员控制台上传公钥
+
+### GitHub Release 资产命名约定（推荐）
+
+- `aiops-offline-images.tar.gz`：解压后应包含 `images/*.tar` 或 `images/*.tar.gz`
+- `aiops-offline-native.tar.gz`：解压后应包含 `native/*`（可选）
 
