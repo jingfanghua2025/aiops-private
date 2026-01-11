@@ -122,7 +122,7 @@ PY
   if [[ -z "$REL_ID" ]]; then
     echo "[+] locate existing release by listing releases..."
     REL_LIST="$(api_json GET "$API/repos/$REPO/releases?per_page=100")"
-    REL_ID="$(python3 - <<'PY'
+    REL_ID="$(TAG="$TAG" python3 - <<'PY'
 import json,sys,os
 tag=os.environ["TAG"]
 j=json.loads(sys.stdin.read())
@@ -131,7 +131,7 @@ for r in j:
     print(r.get("id",""))
     break
 PY
-<<<"$REL_LIST" TAG="$TAG")"
+<<<"$REL_LIST")"
   fi
 fi
 
