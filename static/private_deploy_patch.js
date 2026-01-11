@@ -168,14 +168,29 @@ async function openLicenseModal(detail){
 async function activateLicenseFromModal(){
   const token = (document.getElementById('license-modal-token')?.value || '').trim();
   if (!token) return alert('请粘贴 token');
-  const res = await api('/system/license/activate', 'POST', { token });
-  if (res){
-    alert(res.message || '激活成功');
-    document.getElementById('license-modal').classList.add('hidden');
-    // 刷新页面使 license 中间件放行
-    setTimeout(()=>location.reload(), 400);
+  const base = (typeof _consoleBasePrefix === 'function') ? _consoleBasePrefix() : '';
+  const jwt = localStorage.getItem('aio_token') || '';
+  if (!jwt) return alert('请先用管理员账号登录');
+  try{
+    const r = await fetch(base + '/api/v1/system/license/activate', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + jwt, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    let data = null;
+    try{ data = await r.json(); }catch(e){}
+    if (!r.ok){
+      alert('激活失败：' + (data?.detail || ('HTTP ' + r.status)));
+      return;
+    }
+    alert(data?.message || '激活成功');
+    document.getElementById('license-modal')?.classList.add('hidden');
+    setTimeout(()=>location.reload(), 300);
+  }catch(e){
+    alert('激活请求失败：' + (e && e.message ? e.message : String(e)));
   }
 }
+
 
 function patchApi402(){
   if (window.__PRIVATE_API_PATCHED__) return;
@@ -598,12 +613,28 @@ async function loadLicenseStatus(){
 async function activateLicense(){
   const token = (document.getElementById('lic-token')?.value || '').trim();
   if (!token) return alert('请粘贴 token');
-  const res = await api('/system/license/activate', 'POST', { token });
-  if (res){
-    alert(res.message || '激活成功');
-    setTimeout(()=>location.reload(), 400);
+  const base = (typeof _consoleBasePrefix === 'function') ? _consoleBasePrefix() : '';
+  const jwt = localStorage.getItem('aio_token') || '';
+  if (!jwt) return alert('请先用管理员账号登录');
+  try{
+    const r = await fetch(base + '/api/v1/system/license/activate', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + jwt, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    let data = null;
+    try{ data = await r.json(); }catch(e){}
+    if (!r.ok){
+      alert('激活失败：' + (data?.detail || ('HTTP ' + r.status)));
+      return;
+    }
+    alert(data?.message || '激活成功');
+    setTimeout(()=>location.reload(), 300);
+  }catch(e){
+    alert('激活请求失败：' + (e && e.message ? e.message : String(e)));
   }
 }
+
 
 async function importLicensePublicKey(){
   const f = document.getElementById('lic-pubkey-file')?.files?.[0];
@@ -766,6 +797,9 @@ async function saveKubeconfig(){
   // 添加管理员页面（权限由后端控制；非管理员访问会 403）
   addUsersSection();
   addSystemSection();
+
+  // 私有化：彻底移除运营看板入口与页面
+  __hideOpsNavForPrivateDeploy();
 
   // 初始落到智能问答
   const navChat = Array.from(document.querySelectorAll('a.sidebar-item')).find(x=>x.getAttribute('onclick')?.includes("showSection('chat'"));
