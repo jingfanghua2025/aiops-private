@@ -33,6 +33,27 @@ chmod +x ./offline/install_from_release.sh
 GH_TOKEN=xxxx sudo -E ./offline/install_from_release.sh --tag latest
 ```
 
+## 交付方：制作并上传 latest Release（包含所有镜像）
+
+在交付机（能访问镜像仓库、能 docker pull/构建）：
+
+```bash
+# 1) 确保镜像存在（backend/mysql/nginx）
+docker image ls | grep -E 'aiops-backend|mysql|nginx'
+
+# 2) 生成全量离线包（会 docker save 镜像到 bundle 内）
+chmod +x ./offline/release/make_offline_bundle.sh
+./offline/release/make_offline_bundle.sh
+
+# 3) 生成 sha256（可选但推荐）
+sha256sum ./aiops-offline-bundle.tar.gz > ./aiops-offline-bundle.tar.gz.sha256
+
+# 4) 上传到 GitHub Release（tag=latest）
+chmod +x ./offline/release/upload_latest.sh
+export GH_TOKEN=xxxx
+./offline/release/upload_latest.sh ./aiops-offline-bundle.tar.gz
+```
+
 ### 方式B：已拿到 offline/ 目录（不含镜像包），在目标机本地一键部署
 
 ```bash
