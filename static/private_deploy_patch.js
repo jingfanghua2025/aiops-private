@@ -394,6 +394,15 @@ function addSystemSection(){
           <button class="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold" onclick="activateLicense()">激活</button>
         </div>
       </div>
+
+      <div class="border-t pt-4">
+        <div class="text-xs font-bold text-slate-500">导入 License 公钥（PEM）</div>
+        <div class="flex items-center gap-2 mt-1 flex-wrap">
+          <input id="lic-pubkey-file" type="file" accept=".pem,.txt,*/*" class="text-xs" />
+          <button class="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold" onclick="importLicensePublicKey()">上传公钥</button>
+          <div class="text-[11px] text-slate-400">离线环境需要先导入公钥，才能验签激活 token。</div>
+        </div>
+      </div>
     </div>
 
     <div class="glass-card rounded-2xl p-4 space-y-4">
@@ -593,6 +602,31 @@ async function activateLicense(){
   if (res){
     alert(res.message || '激活成功');
     setTimeout(()=>location.reload(), 400);
+  }
+}
+
+async function importLicensePublicKey(){
+  const f = document.getElementById('lic-pubkey-file')?.files?.[0];
+  if (!f) return alert('请选择公钥文件（.pem）');
+  const fd = new FormData();
+  fd.append('file', f);
+  try{
+    const base = (typeof _consoleBasePrefix === 'function') ? _consoleBasePrefix() : '';
+    const jwt = localStorage.getItem('aio_token') || '';
+    if (!jwt) return alert('请先用管理员账号登录');
+    const r = await fetch(base + '/api/v1/system/license/public-key/import', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + jwt },
+      body: fd,
+    });
+    const data = await r.json().catch(()=>null);
+    if (!r.ok){
+      alert('导入失败：' + (data?.detail || ('HTTP ' + r.status)));
+      return;
+    }
+    alert(data?.message || '公钥导入成功');
+  }catch(e){
+    alert('导入失败：' + (e && e.message ? e.message : e));
   }
 }
 

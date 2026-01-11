@@ -52,6 +52,11 @@ class ActivateReq(BaseModel):
     token: str
 
 
+def _license_public_key_path() -> str:
+    # 与 app.core.license._load_license_public_key 保持一致：优先 env，其次默认路径
+    return os.getenv("LICENSE_PUBLIC_KEY_PATH") or "/data/aiops/keys/license_public.pem"
+
+
 class SettingItem(BaseModel):
     key: str
     value: str | None = None
@@ -139,6 +144,33 @@ async def license_token_import(file: UploadFile = File(...), _: User = Depends(r
         return activate_license(token)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/license/public-key/import")
+async def license_public_key_import(file: UploadFile = File(...), _: User = Depends(require_admin)) -> dict[str, Any]:
+    """导入 license 公钥（PEM），用于离线环境验签 license token。"""
+    raw = (await file.read()).decode("utf-8", errors="ignore").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="文件为空")
+    if "BEGIN PUBLIC KEY" not in raw:
+        raise HTTPException(status_code=400, detail="公钥格式不正确：请上传 PEM 公钥（BEGIN PUBLIC KEY）")
+
+    # 校验 PEM 合法性（避免写入错误文件导致激活失败）
+    try:
+        from cryptography.hazmat.primitives import serialization
+        serialization.load_pem_public_key(raw.encode("utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"公钥解析失败：{exc}")
+
+    path = _license_public_key_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(raw.strip() + "\n")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"写入公钥失败：{exc}")
+
+    return {"message": "公钥导入成功", "path": path}
 
 
 
