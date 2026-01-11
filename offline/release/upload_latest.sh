@@ -43,10 +43,38 @@ fi
 API="https://api.github.com"
 AUTH=(-H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json")
 
+api_json () {
+  local method="$1"
+  local url="$2"
+  local data="${3:-}"
+
+  local tmp_body
+  tmp_body="$(mktemp)"
+  local http
+  if [[ -n "$data" ]]; then
+    http="$(curl -sS -o "$tmp_body" -w "%{http_code}" -X "$method" "${AUTH[@]}" -H "Content-Type: application/json" -d "$data" "$url" || true)"
+  else
+    http="$(curl -sS -o "$tmp_body" -w "%{http_code}" -X "$method" "${AUTH[@]}" "$url" || true)"
+  fi
+
+  if [[ "$http" != "200" && "$http" != "201" ]]; then
+    echo "ERROR: GitHub API $method $url -> HTTP $http" >&2
+    echo "--- response body ---" >&2
+    sed -n '1,200p' "$tmp_body" >&2
+    echo "---------------------" >&2
+    rm -f "$tmp_body"
+    return 1
+  fi
+
+  cat "$tmp_body"
+  rm -f "$tmp_body"
+  return 0
+}
+
 echo "[+] ensure release exists: $REPO tag=$TAG"
 
 # 1) find or create release
-REL_JSON="$(curl -fsSL "${AUTH[@]}" "$API/repos/$REPO/releases/tags/$TAG" || true)"
+REL_JSON="$(api_json GET "$API/repos/$REPO/releases/tags/$TAG" || true)"
 REL_ID="$(python3 - <<'PY'
 import json,sys
 s=sys.stdin.read().strip()
@@ -74,8 +102,7 @@ print(json.dumps({
 }))
 PY
 )"
-  REL_JSON="$(curl -fsSL -X POST "${AUTH[@]}" -H "Content-Type: application/json" \
-    -d "$CREATE_JSON" "$API/repos/$REPO/releases")"
+  REL_JSON="$(api_json POST "$API/repos/$REPO/releases" "$CREATE_JSON")"
   REL_ID="$(python3 - <<'PY'
 import json,sys
 j=json.loads(sys.stdin.read())
@@ -96,7 +123,7 @@ upload_asset () {
   echo "[+] upload asset: $name ($(du -h "$path" | awk '{print $1}'))"
   # 如果已存在同名资产，先删除
   local assets_json
-  assets_json="$(curl -fsSL "${AUTH[@]}" "$API/repos/$REPO/releases/$REL_ID/assets")"
+  assets_json="$(api_json GET "$API/repos/$REPO/releases/$REL_ID/assets")"
   local asset_id
   asset_id="$(python3 - <<'PY'
 import json,sys,os
@@ -111,7 +138,13 @@ PY
 
   if [[ -n "$asset_id" ]]; then
     echo "[+] asset exists, delete id=$asset_id"
-    curl -fsSL -X DELETE "${AUTH[@]}" "$API/repos/$REPO/releases/assets/$asset_id" >/dev/null
+    # delete returns 204 on success
+    local http
+    http="$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE "${AUTH[@]}" "$API/repos/$REPO/releases/assets/$asset_id" || true)"
+    if [[ "$http" != "204" ]]; then
+      echo "ERROR: delete asset failed -> HTTP $http" >&2
+      exit 1
+    fi
   fi
 
   curl -fL -X POST "${AUTH[@]}" \
