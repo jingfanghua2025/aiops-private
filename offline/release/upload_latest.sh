@@ -102,13 +102,42 @@ print(json.dumps({
 }))
 PY
 )"
-  REL_JSON="$(api_json POST "$API/repos/$REPO/releases" "$CREATE_JSON")"
+  # create may fail with 422 if tag_name already exists (e.g. draft release)
+  REL_JSON="$(api_json POST "$API/repos/$REPO/releases" "$CREATE_JSON" || true)"
   REL_ID="$(python3 - <<'PY'
 import json,sys
-j=json.loads(sys.stdin.read())
-print(j["id"])
+s=sys.stdin.read().strip()
+if not s:
+  print("")
+  sys.exit(0)
+try:
+  j=json.loads(s)
+except Exception:
+  print("")
+  sys.exit(0)
+print(j.get("id",""))
 PY
 <<<"$REL_JSON")"
+
+  if [[ -z "$REL_ID" ]]; then
+    echo "[+] locate existing release by listing releases..."
+    REL_LIST="$(api_json GET "$API/repos/$REPO/releases?per_page=100")"
+    REL_ID="$(python3 - <<'PY'
+import json,sys,os
+tag=os.environ["TAG"]
+j=json.loads(sys.stdin.read())
+for r in j:
+  if r.get("tag_name")==tag:
+    print(r.get("id",""))
+    break
+PY
+<<<"$REL_LIST" TAG="$TAG")"
+  fi
+fi
+
+if [[ -z "$REL_ID" ]]; then
+  echo "ERROR: 无法获取 release id（tag=$TAG）。请到 GitHub Releases 确认该 tag 的 Release 是否存在/可见。" >&2
+  exit 1
 fi
 
 echo "[+] release id=$REL_ID"
