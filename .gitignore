@@ -13,3 +13,11 @@ __pycache__/
 static/vendor/
 *.bak.*
 *.bak
+
+# offline delivery (do NOT commit secrets/binaries)
+offline/.env
+offline/config/aiops.env
+offline/keys/*.pem
+offline/images/*.tar
+offline/images/*.tar.gz
+offline/native/

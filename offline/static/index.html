@@ -1,0 +1,2706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIOps+ | 智能运维专家</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="/static/cursor_style.js?v=1766496670"></script>
+    <style>
+        body { font-size: 0.875rem; }
+        .chat-container { height: calc(100vh - 280px); }
+        .sidebar-item:hover { background-color: rgba(59, 130, 246, 0.05); }
+        .sidebar-item.active { background-color: rgba(59, 130, 246, 0.1); border-left: 3px solid #2563eb; color: #2563eb; }
+        .markdown-body pre { background-color: #1f2937; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 0.5rem 0; }
+        .modal { background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+        .glass-card { background: white; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); }
+        input, select { font-size: 0.875rem !important; }
+    </style>
+</head>
+<body class="bg-[#f8fafc] text-slate-700">
+    <!-- Auth/Registration Modal -->
+    <div id="reg-modal" class="hidden fixed inset-0 modal z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <h2 id="auth-title" class="text-xl font-bold mb-6 text-center">欢迎使用 AIOps+</h2>
+            
+            <div id="login-box" class="space-y-4">
+                <input id="login-user" type="text" placeholder="用户名/手机号/微信ID" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                <input id="login-pass" type="password" placeholder="密码（微信登录可留空）" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold">登录</button>
+                <div class="flex items-center gap-2 py-2">
+                    <div class="flex-1 h-px bg-slate-100"></div>
+                    <span class="text-[10px] text-slate-400 font-bold uppercase">其他方式</span>
+                    <div class="flex-1 h-px bg-slate-100"></div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="handleWechatLogin()" class="flex-1 border border-slate-200 py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold hover:bg-slate-50">
+                        <i class="fab fa-weixin text-green-500"></i> 微信登录
+                    </button>
+                </div>
+                <p class="text-center text-xs text-slate-400 mt-2">
+                    <a href="javascript:void(0)" onclick="showForgotPassword()" class="text-blue-600 font-bold hover:underline">忘记密码？</a>
+                </p>
+                <p class="text-center text-xs text-slate-400 mt-2">没有账号？<a href="javascript:void(0)" onclick="toggleAuthMode('reg')" class="text-blue-600 font-bold">立即注册</a></p>
+            </div>
+
+            <div id="reg-box" class="hidden space-y-3">
+                <input id="reg-user" type="text" placeholder="用户名" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                <input id="reg-pass" type="password" placeholder="设置密码" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="flex gap-2">
+                    <input id="reg-email" type="email" placeholder="邮箱" class="flex-1 px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="handleSendEmailCode()" id="btn-send-code" class="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold whitespace-nowrap">获取验证码</button>
+                </div>
+                <input id="reg-code" type="text" placeholder="邮箱验证码" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-500 mt-2">
+                    <input type="checkbox" id="risk-agree" class="w-4 h-4 rounded">
+                    <span>同意<a href="javascript:void(0)" onclick="handleShowRiskAgreement()" class="text-blue-600 underline">《运维风险协议》</a></span>
+                </label>
+                <button onclick="handleRegister()" id="reg-btn" disabled class="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold disabled:opacity-50">完成注册</button>
+                <p class="text-center text-xs text-slate-400 mt-4">已有账号？<a href="javascript:void(0)" onclick="toggleAuthMode('login')" class="text-blue-600 font-bold">返回登录</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insufficient Balance Modal -->
+    <div id="insufficient-balance-modal" class="hidden fixed inset-0 modal z-[200] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exclamation-triangle text-amber-600 text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 mb-2">算力不足</h3>
+                <p class="text-sm text-slate-600 mb-6">
+                    您好，您的算力不足，请充值算力。<br/>
+                    <span class="text-blue-600 font-bold">方案咨询和代码编写永久免费</span>，<br/>
+                    排障与部署扣算力点收费。
+                </p>
+                <div class="flex gap-3">
+                    <button onclick="handleCloseModal('insufficient-balance-modal')" class="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200">取消</button>
+                    <button onclick="showSection('billing', null); handleCloseModal('insufficient-balance-modal')" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">去充值</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgot-password-modal" class="hidden fixed inset-0 modal z-[200] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-slate-800">找回密码</h3>
+                <button onclick="closeForgotPassword()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-2">找回方式</label>
+                    <div class="flex gap-2">
+                        <button id="forgot-email-btn" onclick="setForgotChannel('email')" class="flex-1 px-4 py-2 rounded-lg border-2 border-blue-600 bg-blue-50 text-blue-600 font-bold text-sm">邮箱找回</button>
+                        <button id="forgot-sms-btn" onclick="setForgotChannel('sms')" class="flex-1 px-4 py-2 rounded-lg border-2 border-slate-200 bg-white text-slate-600 font-bold text-sm hover:border-blue-600">短信找回</button>
+                    </div>
+                </div>
+                <div id="forgot-email-box">
+                    <input id="forgot-email" type="email" placeholder="请输入注册邮箱" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex gap-2 mt-2">
+                        <input id="forgot-email-code" type="text" placeholder="邮箱验证码" class="flex-1 px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                        <button onclick="handleSendForgotEmailCode()" id="btn-forgot-email-code" class="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold whitespace-nowrap">获取验证码</button>
+                    </div>
+                </div>
+                <div id="forgot-sms-box" class="hidden">
+                    <input id="forgot-phone" type="tel" placeholder="请输入绑定手机号" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex gap-2 mt-2">
+                        <input id="forgot-sms-code" type="text" placeholder="短信验证码" class="flex-1 px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                        <button onclick="handleSendForgotSmsCode()" id="btn-forgot-sms-code" class="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold whitespace-nowrap">获取验证码</button>
+                    </div>
+                </div>
+                <input id="forgot-new-password" type="password" placeholder="新密码（至少8位）" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="handleResetPassword()" class="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold">重置密码</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Agreement Modal -->
+    <div id="risk-agreement-modal" class="hidden fixed inset-0 modal z-[200] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 max-h-[80vh] flex flex-col">
+            <h3 class="text-xl font-bold mb-4 text-slate-800 border-b pb-4">AIOps+ 运维风险协议</h3>
+            <div class="flex-1 overflow-y-auto pr-2 text-sm text-slate-600 leading-relaxed space-y-4">
+                <p class="font-bold text-red-600">【重要提示】在您注册并使用 AIOps+ 智能运维系统之前，请务必仔细阅读以下关于数据安全及操作风险的条款。点击“同意”即代表您已充分理解并自愿承担相关风险。</p>
+                <section>
+                    <h4 class="font-bold text-slate-800 mb-2">一、 数据安全与隐私</h4>
+                    <p>1.1 系统会涉及您的服务器登录凭据（如 SSH 账号密码、密钥等）。虽然系统采用加密存储，但您需知晓任何互联网传输均存在理论上的泄露风险。</p>
+                    <p>1.2 AIOps+ 作为辅助工具，不对由于第三方网络攻击、运营商故障或不可抗力导致的数据泄露承担责任。</p>
+                </section>
+                <section>
+                    <h4 class="font-bold text-slate-800 mb-2">二、 自动化操作风险</h4>
+                    <p>2.1 系统提供的“自动化排障”与“脚本部署”功能基于人工智能生成逻辑。AI 可能产生非预期、错误或具有破坏性的指令。</p>
+                    <p>2.2 <span class="font-bold text-red-600">所有由系统提议的操作必须经过您的手动授权。</span> 一旦您点击“授权并执行”，即视为您已审核该操作的安全性和必要性。</p>
+                    <p>2.3 对于因执行 AI 建议指令而导致的系统崩溃、数据丢失、业务中断或任何财产损失，<span class="font-bold text-slate-800">AIOps+ 不承担赔偿责任，所有后果由用户自行承担。</span></p>
+                </section>
+                <section>
+                    <h4 class="font-bold text-slate-800 mb-2">三、 用户责任</h4>
+                    <p>3.1 用户应确保在执行敏感操作前已完成必要的数据备份。</p>
+                    <p>3.2 用户需妥善保管账号密码，不得转借他人使用。因账号保管不善导致的误操作由用户承担。</p>
+                </section>
+                <p class="text-[11px] text-slate-400 pt-4 italic">版本更新日期：2025年12月21日</p>
+            </div>
+            <button onclick="handleCloseModal('risk-agreement-modal')" class="mt-6 w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-900 transition">我已阅读并知晓风险</button>
+        </div>
+    </div>
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white border-r border-slate-200 flex flex-col z-40">
+            <div class="p-6 flex items-center gap-3">
+                <img src="/static/logo.svg" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=AIOps%2B&background=2563EB&color=fff';" class="w-8 h-8 rounded-lg" alt="Logo">
+                <span class="text-lg font-bold tracking-tight">AIOps+</span>
+            </div>
+
+            <nav class="flex-1 px-3 space-y-1">
+                <div class="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">核心工作台</div>
+                <a href="javascript:void(0)" class="sidebar-item active flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('dashboard', this)">
+                    <i class="fas fa-home w-5 opacity-70"></i><span class="font-semibold ml-2">仪表盘</span>
+                </a>
+                <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('chat', this)">
+                    <i class="fas fa-robot w-5 opacity-70"></i><span class="font-semibold ml-2">智能问答</span>
+                </a>
+                <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('ssh', this)">
+                    <i class="fas fa-server w-5 opacity-70"></i><span class="font-semibold ml-2">主机管理</span>
+                </a>
+                <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('knowledge', this)">
+                    <i class="fas fa-book w-5 opacity-70"></i><span class="font-semibold ml-2">知识库</span>
+                </a>
+
+                <div class="px-4 py-2 mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">财务与管理</div>
+                <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('billing', this)">
+                    <i class="fas fa-wallet w-5 opacity-70"></i><span class="font-semibold ml-2">充值中心</span>
+                </a>
+                <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('usage', this)">
+                    <i class="fas fa-list w-5 opacity-70"></i><span class="font-semibold ml-2">用量明细</span>
+                </a>
+                <a id="nav-ops" href="javascript:void(0)" class="sidebar-item hidden flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('ops', this)">
+                    <i class="fas fa-chart-line w-5 opacity-70"></i><span class="font-semibold ml-2">运营看板</span>
+                </a>
+                <a id="nav-license-approve" href="javascript:void(0)" class="sidebar-item hidden flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('license-approve', this)">
+                    <i class="fas fa-key w-5 opacity-70"></i><span class="font-semibold ml-2">License 审批</span>
+                </a>
+                <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('profile', this)">
+                    <i class="fas fa-user w-5 opacity-70"></i><span class="font-semibold ml-2">个人信息</span>
+                </a>
+                <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('contact', this)">
+                    <i class="fas fa-headset w-5 opacity-70"></i><span class="font-semibold ml-2">联系我们</span>
+                </a>
+                <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="openUserManual()">
+                    <i class="fas fa-book-open w-5 opacity-70"></i><span class="font-semibold ml-2">用户手册</span>
+                </a>
+            </nav>
+
+            <div class="p-6">
+                <div class="bg-blue-50 rounded-2xl p-4 border border-blue-100">
+                    <div class="text-[10px] text-blue-600 font-bold uppercase mb-1">可用算力</div>
+                    <div class="text-xl font-bold text-slate-800" id="sidebar-balance">￥0.00</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col min-w-0">
+            <header class="h-16 px-8 flex items-center justify-between bg-white border-b border-slate-200">
+                <h2 id="section-title" class="text-sm font-bold text-slate-800">仪表盘</h2>
+                <div class="flex items-center gap-3">
+                    <div class="text-right">
+                        <div class="text-xs font-bold" id="header-username">未登录</div>
+                        <div class="text-[10px] text-blue-600 font-medium" id="header-tier">免费用户</div>
+                    </div>
+                    <div class="relative">
+                        <img id="header-avatar" src="https://ui-avatars.com/api/?name=User&background=2563EB&color=fff" class="w-8 h-8 rounded-lg cursor-pointer" onclick="toggleAvatarDropdown()">
+                        <div id="avatar-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-50">
+                            <a href="javascript:void(0)" onclick="showSection('profile', null); toggleAvatarDropdown();" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                <i class="fas fa-user mr-2"></i>个人信息
+                            </a>
+                            <a href="javascript:void(0)" onclick="handleLogout()" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-8">
+                <!-- Dashboard -->
+                <div id="section-dashboard" class="space-y-6">
+                    <!-- 统计卡片 -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="glass-card p-6 rounded-2xl">
+                            <div class="text-slate-400 text-[10px] font-bold uppercase">已接管主机</div>
+                            <div class="text-2xl font-bold mt-1" id="stat-hosts">0</div>
+                        </div>
+                        <div class="glass-card p-6 rounded-2xl">
+                            <div class="text-slate-400 text-[10px] font-bold uppercase">处理任务数</div>
+                            <div class="text-2xl font-bold mt-1" id="stat-usage">0</div>
+                        </div>
+                        <div class="glass-card p-6 rounded-2xl">
+                            <div class="text-slate-400 text-[10px] font-bold uppercase">知识库条目</div>
+                            <div class="text-2xl font-bold mt-1" id="stat-kb">0</div>
+                        </div>
+                        <div class="glass-card p-6 rounded-2xl bg-blue-600 text-white border-none">
+                            <div class="text-blue-100 text-[10px] font-bold uppercase">账户余额</div>
+                            <div class="text-2xl font-bold mt-1" id="stat-balance">￥0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- 算力消耗图表 -->
+                    <div class="glass-card p-6 rounded-2xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-slate-800">每月用量</h3>
+                            <div class="flex items-center gap-2">
+                                <select id="usage-month-select" class="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">当前月</option>
+                                </select>
+                                <button onclick="exportUsageData()" class="px-3 py-1.5 text-xs bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-bold">导出</button>
+                            </div>
+                        </div>
+                        <div class="text-sm text-slate-600 mb-4">
+                            消费金额 <span id="total-cost" class="font-bold text-blue-600">¥0.00</span>
+                        </div>
+                        
+                        <!-- 消费金额趋势图 -->
+                        <div class="mb-6">
+                            <div id="cost-chart" style="width: 100%; height: 300px;"></div>
+                        </div>
+
+                        <!-- 任务数和Tokens图表 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <div class="text-sm text-slate-600 mb-2">
+                                    API 请求次数 <span id="total-requests" class="font-bold">0</span>
+                                </div>
+                                <div id="requests-chart" style="width: 100%; height: 200px;"></div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-slate-600 mb-2">
+                                    Tokens <span id="total-tokens" class="font-bold">0</span>
+                                </div>
+                                <div id="tokens-chart" style="width: 100%; height: 200px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat -->
+                <div id="section-chat" class="hidden h-full flex flex-col space-y-4">
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 w-fit">
+                            <button onclick="handleSetChatMode('qa')" id="mode-qa" class="px-6 py-2 rounded-lg text-xs font-bold transition-all bg-blue-600 text-white">方案咨询</button>
+                            <button onclick="handleSetChatMode('code')" id="mode-code" class="px-6 py-2 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-slate-600">代码编写</button>
+                            <button onclick="handleSetChatMode('ops')" id="mode-ops" class="px-6 py-2 rounded-lg text-xs font-bold transition-all text-slate-400">排障&部署</button>
+                        </div>
+                        <button onclick="handleNewChat()" class="p-2 text-slate-400 hover:text-blue-600 bg-white border rounded-xl" title="新会话">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="host-selector-wrap" class="hidden flex-col gap-2 bg-white p-3 rounded-xl border border-slate-200">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase mb-1 px-1">选择执行目标 (可多选)</div>
+                        <div id="host-checkbox-list" class="flex flex-wrap gap-2 max-h-24 overflow-y-auto"></div>
+                    </div>
+                    <!-- Cursor 风格：只保留一个对话框，OPS 执行授权以“聊天内联卡片”展示 -->
+                    <div id="chat-panel" class="flex-1 bg-white rounded-2xl border border-slate-200 flex flex-col overflow-hidden shadow-sm">
+                        <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-4 chat-container"></div>
+                        <div class="p-4 bg-slate-50 border-t">
+                            <div class="flex gap-2">
+                                <input id="chat-input" type="text" class="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none text-sm" placeholder="输入您的运维需求...">
+                                <button id="btn-send" onclick="handleSendQuestion()" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-200">发送</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SSH Management -->
+                <div id="section-ssh" class="hidden space-y-6">
+                    <div class="glass-card p-6 rounded-2xl">
+                        <h3 class="font-bold text-sm mb-4">添加主机资产</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+                            <input id="ssh-name" type="text" placeholder="别名" class="px-3 py-2 border rounded-lg outline-none">
+                            <input id="ssh-ip" type="text" placeholder="IP" class="px-3 py-2 border rounded-lg outline-none">
+                            <input id="ssh-port" type="number" value="22" class="px-3 py-2 border rounded-lg outline-none">
+                            <input id="ssh-user" type="text" placeholder="用户名" class="px-3 py-2 border rounded-lg outline-none">
+                            <input id="ssh-pass" type="password" placeholder="密码" class="px-3 py-2 border rounded-lg outline-none">
+                            <div class="flex gap-2">
+                                <button onclick="handleTestSSH()" class="bg-slate-100 px-3 py-2 rounded-lg text-xs font-bold">测试</button>
+                                <button onclick="handleAddHost()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex-1">添加</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="host-list" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                </div>
+
+                <!-- Knowledge -->
+                <div id="section-knowledge" class="hidden space-y-6">
+                    <div class="glass-card p-6 rounded-2xl flex flex-col min-h-[600px]">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-base flex items-center gap-2"><i class="fas fa-book text-blue-600"></i> 私有知识清单</h3>
+                            <div class="relative w-64">
+                                <i class="fas fa-search absolute left-3 top-3 text-slate-300 text-xs"></i>
+                                <input type="text" id="kb-search" oninput="handleFilterKB()" placeholder="搜索知识标题或内容..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-400 transition">
+                            </div>
+                        </div>
+                        <div class="flex-1 overflow-y-auto pr-2">
+                            <div id="kb-private-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                        </div>
+                        <div id="kb-pagination" class="flex justify-center items-center gap-2 mt-8 pt-6 border-t border-slate-50">
+                            <button onclick="handleChangeKBPage(-1)" id="btn-kb-prev" class="p-2 px-4 rounded-lg bg-slate-100 text-slate-500 text-xs font-bold hover:bg-slate-200">上一页</button>
+                            <span id="kb-page-info" class="text-xs font-bold text-slate-400 px-4">第 1 / 1 页</span>
+                            <button onclick="handleChangeKBPage(1)" id="btn-kb-next" class="p-2 px-4 rounded-lg bg-slate-100 text-slate-500 text-xs font-bold hover:bg-slate-200">下一页</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile -->
+                <div id="section-profile" class="hidden space-y-6">
+                    <div class="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="glass-card p-8 rounded-2xl">
+                            <h3 class="font-bold text-sm mb-6 flex items-center gap-2"><i class="fas fa-user-circle text-blue-600"></i> 账号信息</h3>
+                            <div class="space-y-4 text-xs">
+                                <div class="flex justify-between py-3 border-b border-slate-50"><span class="text-slate-400">用户名</span><span id="prof-user" class="font-bold"></span></div>
+                                <div class="flex justify-between py-3 border-b border-slate-50"><span class="text-slate-400">电子邮箱</span><span id="prof-email" class="font-bold"></span></div>
+                                <div class="flex justify-between py-3 border-b border-slate-50"><span class="text-slate-400">绑定手机</span><span id="prof-phone" class="font-bold">未绑定</span></div>
+                                <div class="flex justify-between py-3 border-b border-slate-50"><span class="text-slate-400">注册时间</span><span id="prof-date" class="font-bold"></span></div>
+                            </div>
+                            <div class="mt-6 flex flex-col gap-2">
+                                <button onclick="handleShowModal('password-modal')" class="w-full py-2 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition">修改登录密码</button>
+                                <button onclick="handleLogout()" class="w-full py-2 border border-red-100 text-red-500 rounded-xl font-bold hover:bg-red-50 transition">退出登录</button>
+                            </div>
+                        </div>
+                        <div class="glass-card p-8 rounded-2xl">
+                            <h3 class="font-bold text-sm mb-6 flex items-center gap-2"><i class="fas fa-shield-alt text-emerald-600"></i> 实名认证</h3>
+                            <div class="space-y-4 text-xs">
+                                <div class="flex justify-between py-3 border-b border-slate-50"><span class="text-slate-400">实名状态</span><span id="prof-verif-badge" class="px-2 py-0.5 rounded text-[10px] font-bold"></span></div>
+                                <div class="flex justify-between py-3 border-b border-slate-50"><span class="text-slate-400">账户类型</span><span id="prof-type" class="font-bold"></span></div>
+                                <div class="flex justify-between py-3 border-b border-slate-50"><span class="text-slate-400">微信绑定</span><span id="prof-wechat" class="font-bold"></span></div>
+                            </div>
+                            <div id="verif-actions" class="mt-6 space-y-3">
+                                <button onclick="handleShowPersonalVerif()" class="w-full py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100">个人实名认证</button>
+                                <button onclick="handleShowEnterpriseVerif()" class="w-full py-2.5 bg-slate-800 text-white rounded-xl font-bold">企业实名认证</button>
+                                <button id="admin-review-btn" onclick="handleShowAdminReview()" class="w-full py-2.5 bg-purple-600 text-white rounded-xl font-bold hidden">管理员审核</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other sections: Billing, Usage, Contact, etc. (kept standard) -->
+                
+<div id="section-billing" class="hidden space-y-6">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="glass-card p-6 rounded-2xl">
+      <h3 class="font-bold text-sm mb-4 flex items-center gap-2"><i class="fas fa-wallet text-blue-600"></i> 充值中心</h3>
+      <div class="text-xs text-slate-500 mb-3">当前余额：<span id="billing-balance" class="font-bold text-slate-800">￥0.00</span></div>
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <button class="amount-btn bg-slate-100 rounded-xl py-3 font-bold text-sm" onclick="handleSelectAmount(10)">￥10</button>
+        <button class="amount-btn bg-slate-100 rounded-xl py-3 font-bold text-sm" onclick="handleSelectAmount(50)">￥50</button>
+        <button class="amount-btn bg-slate-100 rounded-xl py-3 font-bold text-sm" onclick="handleSelectAmount(100)">￥100</button>
+        <button class="amount-btn bg-slate-100 rounded-xl py-3 font-bold text-sm" onclick="handleSelectAmount(300)">￥300</button>
+      </div>
+      <div class="flex gap-3 mb-4">
+        <button id="btn-method-alipay" class="flex-1 border border-slate-200 rounded-xl py-3 font-bold text-sm hover:bg-slate-50" onclick="handleSelectMethod('alipay')"><i class="fab fa-alipay text-blue-600"></i> 支付宝</button>
+        <button id="btn-method-wechat" class="flex-1 border border-slate-200 rounded-xl py-3 font-bold text-sm hover:bg-slate-50" onclick="handleSelectMethod('wechat')"><i class="fab fa-weixin text-green-600"></i> 微信</button>
+      </div>
+      <button onclick="handleRecharge()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-100">确认充值</button>
+      <p class="text-[11px] text-slate-400 mt-3">说明：将跳转微信/支付宝官方支付通道，支付成功会自动入账。如未弹出页面，请允许浏览器弹窗或使用扫码支付。</p>
+    </div>
+
+    <div class="glass-card p-6 rounded-2xl">
+      <h3 class="font-bold text-sm mb-4 flex items-center gap-2"><i class="fas fa-receipt text-emerald-600"></i> 最近流水</h3>
+      <div id="billing-last" class="text-xs text-slate-500 space-y-2">
+        <div class="text-slate-400">暂无流水</div>
+      </div>
+      <div class="mt-4">
+        <button class="text-xs font-bold text-blue-600 hover:underline" onclick="showSection('usage')">查看全部用量明细 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+                
+<div id="section-usage" class="hidden space-y-6">
+  <div class="glass-card p-6 rounded-2xl">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-sm flex items-center gap-2"><i class="fas fa-list text-blue-600"></i> 用量明细</h3>
+      <button onclick="loadUsageHistory()" class="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-slate-200">刷新</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-slate-400">
+            <th class="text-left py-2">时间</th>
+            <th class="text-left py-2">内容</th>
+            <th class="text-right py-2">金额</th>
+          </tr>
+        </thead>
+        <tbody id="usage-tbody">
+          <tr><td colspan="3" class="py-4 text-center text-slate-400">暂无数据</td></tr>
+        </tbody>
+      </table>
+    
+      <!-- 分页控件 -->
+      <div class="flex items-center justify-between mt-4 px-4">
+        <div class="text-sm text-slate-600">
+          共 <span id="usage-total-count">0</span> 条记录，第 <span id="usage-current-page">1</span> / <span id="usage-total-pages">1</span> 页
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="usage-prev-btn" onclick="loadUsageHistory(currentUsagePage - 1)" 
+                  class="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled>上一页</button>
+          <button id="usage-next-btn" onclick="loadUsageHistory(currentUsagePage + 1)" 
+                  class="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled>下一页</button>
+        </div>
+      </div></div>
+  </div>
+</div>
+
+                
+<div id="section-contact" class="hidden space-y-6">
+  <div class="glass-card p-6 rounded-2xl max-w-2xl">
+    <h3 class="font-bold text-sm mb-4 flex items-center gap-2"><i class="fas fa-headset text-blue-600"></i> 联系我们</h3>
+    <div class="flex flex-col md:flex-row gap-6 items-start">
+      <div class="flex-1 text-xs text-slate-600 leading-relaxed space-y-2">
+        <p>如需商务合作、企业版接入、支付接口对接（微信/支付宝）或私有化部署支持，请扫码联系。</p>
+        <p class="text-slate-400">工作时间：9:30-18:30</p>
+      </div>
+      <div class="w-48">
+        <img src="https://opschat.oss-cn-beijing.aliyuncs.com/lxwm.jpg" class="w-48 h-48 rounded-xl border" alt="联系我们二维码" />
+        <div class="text-center text-[11px] text-slate-400 mt-2">扫码添加客服</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 运营看板 -->
+<div id="section-ops" class="hidden space-y-6">
+  <!-- Submenu -->
+  <div class="flex gap-4 border-b border-slate-200 pb-2 mb-4">
+      <button onclick="switchOpsTab('overview')" id="ops-tab-overview" class="text-sm font-bold text-blue-600 border-b-2 border-blue-600 pb-2 transition-colors">数据概览</button>
+      <button onclick="switchOpsTab('users')" id="ops-tab-users" class="text-sm font-bold text-slate-500 hover:text-slate-700 pb-2 transition-colors">用户信息</button>
+      <button onclick="switchOpsTab('visits')" id="ops-tab-visits" class="text-sm font-bold text-slate-500 hover:text-slate-700 pb-2 transition-colors">访问分析</button>
+
+  </div>
+
+  <!-- Overview View -->
+  <div id="ops-view-overview" class="space-y-6">
+    
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="glass-card p-6 rounded-2xl">
+      <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">总用户数</div>
+      <div class="text-2xl font-bold text-slate-800" id="ops-total-users">0</div>
+    </div>
+    <div class="glass-card p-6 rounded-2xl">
+      <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">个人用户</div>
+      <div class="text-2xl font-bold text-slate-800" id="ops-personal-users">0</div>
+    </div>
+    <div class="glass-card p-6 rounded-2xl">
+      <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">企业用户</div>
+      <div class="text-2xl font-bold text-slate-800" id="ops-enterprise-users">0</div>
+    </div>
+    <div class="glass-card p-6 rounded-2xl">
+      <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">今日注册</div>
+      <div class="text-2xl font-bold text-slate-800" id="ops-today-registrations">0</div>
+    </div>
+  </div>
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="glass-card p-6 rounded-2xl">
+      <h3 class="font-bold text-sm mb-4">用户注册趋势</h3>
+      <div id="ops-registrations-chart" style="width: 100%; height: 300px;"></div>
+    </div>
+    <div class="glass-card p-6 rounded-2xl">
+      <h3 class="font-bold text-sm mb-4">营收趋势</h3>
+      <div id="ops-revenue-chart" style="width: 100%; height: 300px;"></div>
+    </div>
+  </div>
+  
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="glass-card p-6 rounded-2xl">
+      <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">今日营收</div>
+      <div class="text-xl font-bold text-blue-600" id="ops-today-revenue">￥0.00</div>
+    </div>
+    <div class="glass-card p-6 rounded-2xl">
+      <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">本周营收</div>
+      <div class="text-xl font-bold text-blue-600" id="ops-week-revenue">￥0.00</div>
+    </div>
+    <div class="glass-card p-6 rounded-2xl">
+      <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">本月营收</div>
+      <div class="text-xl font-bold text-blue-600" id="ops-month-revenue">￥0.00</div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Users View -->
+  <div id="ops-view-users" class="hidden space-y-6">
+     <div class="glass-card p-6 rounded-2xl">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-sm">用户列表</h3>
+            <button onclick="loadOpsUsers()" class="px-3 py-1.5 bg-slate-100 text-xs font-bold rounded-lg hover:bg-slate-200"><i class="fas fa-sync-alt mr-1"></i>刷新</button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-100">
+                        <th class="py-3 px-2">ID</th>
+                        <th class="py-3 px-2">用户名</th>
+                        <th class="py-3 px-2">邮箱</th>
+                        <th class="py-3 px-2">注册时间</th>
+                        <th class="text-right py-3 px-2">算力余额</th>
+                    </tr>
+                </thead>
+                <tbody id="ops-users-tbody" class="text-slate-600">
+                    <tr><td colspan="5" class="text-center py-4">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="flex justify-between items-center mt-4 border-t border-slate-50 pt-4">
+             <span class="text-xs text-slate-400" id="ops-users-info">第 1 页</span>
+             <div class="flex gap-2">
+                 <button onclick="changeOpsUserPage(-1)" class="px-3 py-1 bg-slate-100 rounded text-xs hover:bg-slate-200 font-bold">上一页</button>
+                 <button onclick="changeOpsUserPage(1)" class="px-3 py-1 bg-slate-100 rounded text-xs hover:bg-slate-200 font-bold">下一页</button>
+             </div>
+        </div>
+     </div>
+  </div
+
+  <!-- Visits View -->
+  <div id="ops-view-visits" class="hidden space-y-6">
+     <!-- Stats Cards -->
+     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="glass-card p-6 rounded-2xl bg-blue-600 text-white border-none">
+            <div class="text-blue-100 text-[10px] font-bold uppercase mb-2">今日访问 (PV)</div>
+            <div class="text-3xl font-bold" id="visit-stat-today">0</div>
+        </div>
+        <div class="glass-card p-6 rounded-2xl">
+            <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">累计访问 (PV)</div>
+            <div class="text-3xl font-bold text-slate-800" id="visit-stat-total">0</div>
+        </div>
+     </div>
+
+     <!-- Charts -->
+     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="glass-card p-6 rounded-2xl md:col-span-2">
+            <h3 class="font-bold text-sm mb-4">近7日访问趋势</h3>
+            <div id="visit-trend-chart" style="width: 100%; height: 300px;"></div>
+        </div>
+        <div class="glass-card p-6 rounded-2xl">
+            <h3 class="font-bold text-sm mb-4">来源 Top 10</h3>
+            <div id="visit-source-chart" style="width: 100%; height: 300px;"></div>
+        </div>
+     </div>
+
+     <!-- Recent Logs -->
+     <div class="glass-card p-6 rounded-2xl">
+        <h3 class="font-bold text-sm mb-4">最新访问记录</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-100">
+                        <th class="py-2">时间</th>
+                        <th class="py-2">IP</th>
+                        <th class="py-2">来源 (Referrer)</th>
+                        <th class="py-2">User Agent</th>
+                    </tr>
+                </thead>
+                <tbody id="visit-log-tbody">
+                    <tr><td colspan="4" class="text-center py-4 text-slate-400">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+     </div>
+  </div>
+>
+
+</div>
+
+<!-- License Approve (admin only) -->
+<div id="section-license-approve" class="hidden space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-xl font-bold text-slate-800">License 审批</h2>
+      <div class="text-sm text-slate-500 mt-1">仅管理员可见：查看申请、签发 token、驳回。</div>
+    </div>
+    <button class="px-4 py-2 bg-slate-100 rounded-xl font-bold" onclick="loadLicenseApplications()">刷新</button>
+  </div>
+
+  <div class="glass-card rounded-2xl p-4">
+    <div class="overflow-auto">
+      <table class="w-full text-sm">
+        <thead class="text-slate-400">
+          <tr>
+            <th class="text-left py-2">ID</th>
+            <th class="text-left py-2">状态</th>
+            <th class="text-left py-2">产品</th>
+            <th class="text-left py-2">机器码</th>
+            <th class="text-left py-2">申请信息</th>
+            <th class="text-left py-2">时间</th>
+            <th class="text-right py-2">操作</th>
+          </tr>
+        </thead>
+        <tbody id="license-approve-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- OPS 授权：已改为“聊天内联卡片（Cursor 风格）”，不再使用弹窗 -->
+
+    <div id="auth-modal" class="hidden fixed inset-0 modal z-[120] flex items-center justify-center p-4">...</div>
+    
+<div id="password-modal" class="hidden fixed inset-0 modal z-[110] flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-sm">修改登录密码</h3>
+      <button class="text-slate-400 hover:text-slate-600" onclick="handleCloseModal('password-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="space-y-3">
+      <input id="pwd-old" type="password" placeholder="原密码" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+      <input id="pwd-new" type="password" placeholder="新密码" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+      <button onclick="handleChangePassword()" class="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold">确认修改</button>
+    </div>
+  </div>
+</div>
+
+    
+<div id="personal-verif-modal" class="hidden fixed inset-0 modal z-[110] flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-sm">个人实名认证</h3>
+      <button class="text-slate-400 hover:text-slate-600" onclick="handleCloseModal('personal-verif-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="space-y-3">
+      <input id="pv-phone" type="text" placeholder="手机号" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+      <div class="flex gap-2">
+        <input id="pv-code" type="text" placeholder="短信验证码" class="flex-1 px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+        <button onclick="handleSendSMS()" class="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-slate-200">获取验证码</button>
+      </div>
+      <button onclick="handleVerifyPersonal()" class="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold">提交认证</button>
+      <p class="text-[11px] text-slate-400">演示：短信验证码会在弹窗提示中返回。</p>
+    </div>
+  </div>
+</div>
+
+    
+<div id="enterprise-verif-modal" class="hidden fixed inset-0 modal z-[110] flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-sm">企业实名认证</h3>
+      <button class="text-slate-400 hover:text-slate-600" onclick="handleCloseModal('enterprise-verif-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="space-y-3">
+      <input id="ev-company-name" type="text" placeholder="企业名称" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+      <input id="ev-license-no" type="text" placeholder="统一社会信用代码（18位）" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+      <div class="flex gap-2">
+        <input id="ev-contact-phone" type="text" placeholder="联系手机号" class="flex-1 px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+        <button onclick="handleSendEnterpriseSMS()" class="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-slate-200">获取验证码</button>
+      </div>
+      <input id="ev-phone-code" type="text" placeholder="短信验证码" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+      <input id="ev-wechat-id" type="text" placeholder="企业微信ID（可选）" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+      <div>
+        <label class="block text-xs text-slate-500 mb-1">营业执照照片</label>
+        <input id="ev-file" type="file" accept="image/*" class="w-full px-4 py-2 bg-slate-50 border rounded-xl outline-none" />
+      </div>
+      <button onclick="handleVerifyEnterprise()" class="w-full bg-slate-800 text-white py-2.5 rounded-xl font-bold">提交企业认证（待审核）</button>
+      <p class="text-[11px] text-slate-400">提交后等待管理员审核，审核通过后生效。</p>
+    </div>
+  </div>
+</div>
+
+    
+<div id="kb-detail-modal" class="hidden fixed inset-0 modal z-[130] flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[80vh] flex flex-col">
+    <div class="flex items-center justify-between mb-4">
+      <h3 id="kb-detail-title" class="font-bold text-sm">知识详情</h3>
+      <button class="text-slate-400 hover:text-slate-600" onclick="handleCloseModal('kb-detail-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="kb-detail-content" class="flex-1 overflow-y-auto text-sm text-slate-700 whitespace-pre-wrap"></div>
+  </div>
+</div>
+
+    
+<div id="admin-review-modal" class="hidden fixed inset-0 modal z-[120] flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 max-h-[90vh] flex flex-col">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg">企业认证审核</h3>
+      <button class="text-slate-400 hover:text-slate-600" onclick="handleCloseModal('admin-review-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="flex gap-2 mb-4">
+      <button onclick="loadEnterpriseReviews('pending')" class="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-xl text-sm font-bold">待审核</button>
+      <button onclick="loadEnterpriseReviews('approved')" class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-sm font-bold">已通过</button>
+      <button onclick="loadEnterpriseReviews('rejected')" class="px-4 py-2 bg-red-100 text-red-700 rounded-xl text-sm font-bold">已拒绝</button>
+      <button onclick="loadEnterpriseReviews('')" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold">全部</button>
+    </div>
+    <div id="admin-review-list" class="flex-1 overflow-y-auto space-y-3">
+      <div class="text-center text-slate-400 py-8">加载中...</div>
+    </div>
+  </div>
+</div>
+
+<div id="admin-review-detail-modal" class="hidden fixed inset-0 modal z-[130] flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] flex flex-col">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg">审核详情</h3>
+      <button class="text-slate-400 hover:text-slate-600" onclick="handleCloseModal('admin-review-detail-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="admin-review-detail-content" class="flex-1 overflow-y-auto space-y-4">
+      <!-- 详情内容将通过JavaScript动态填充 -->
+    </div>
+    <div id="admin-review-actions" class="mt-4 flex gap-3">
+      <button onclick="handleApproveReview()" class="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-bold">通过</button>
+      <button onclick="handleRejectReview()" class="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold">拒绝</button>
+    </div>
+  </div>
+</div>
+
+<div id="payment-modal" class="hidden fixed inset-0 modal z-[125] flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
+    <button class="absolute right-4 top-4 text-slate-400 hover:text-slate-600" onclick="handleClosePaymentModal()"><i class="fas fa-times"></i></button>
+    <div class="space-y-4">
+      <div>
+        <p class="text-xs text-slate-400">充值订单</p>
+        <div class="text-xs text-slate-500 break-all">订单号：<span id="payment-order-no" class="font-mono"></span></div>
+        <div class="flex items-baseline gap-2">
+          <span id="payment-amount" class="text-3xl font-bold text-slate-800">￥0.00</span>
+          <span id="payment-method-label" class="text-xs font-bold px-2 py-1 bg-slate-100 rounded">支付中</span>
+        </div>
+      </div>
+      <div class="border border-slate-100 rounded-2xl p-4 text-center space-y-3">
+        <img id="payment-qr-img" class="mx-auto w-52 h-52 rounded-xl border border-slate-100 shadow-sm" alt="支付二维码" />
+        <div id="payment-qr-text" class="text-xs text-slate-500">请使用微信/支付宝扫码完成支付</div>
+        <button id="payment-open-link" class="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow-lg shadow-blue-100 hidden" onclick="handleOpenPayLink()">重新打开支付链接</button>
+      </div>
+      <div id="payment-status-text" class="text-sm text-slate-600 bg-slate-50 rounded-xl p-3">等待支付确认...</div>
+      <div class="flex gap-3">
+        <button class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold" onclick="handleClosePaymentModal()">先放在这里</button>
+        <button class="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-bold" onclick="handleConfirmPayment()">已完成支付</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+    <script>
+
+        let authToken = localStorage.getItem('aio_token') || '';
+        let chatMode = 'qa';
+        let currentAuthData = null;
+        let selectedAmount = 50;
+        let selectedMethod = 'alipay';
+        let paymentOrderNo = '';
+        let paymentPayUrl = '';
+        let paymentPolling = null;
+        let paymentMethod = '';
+
+        async function api(path, method = 'GET', body = null) {
+            const token = authToken || localStorage.getItem('aio_token');
+            const options = {
+                method,
+                headers: { 'Authorization': 'Bearer ' + token }
+            };
+            if (body) {
+                options.headers['Content-Type'] = 'application/json';
+                options.body = JSON.stringify(body);
+            }
+            try {
+                const res = await fetch('/api/v1' + path, options);
+                if (res.status === 401) {
+                    handleShowModal('reg-modal');
+                    return null;
+                }
+                const data = await res.json();
+                // 处理402错误（算力不足）
+                if (res.status === 402) {
+                    const error = new Error(data.detail || '算力不足');
+                    error.status = 402;
+                    error.detail = data.detail;
+                    throw error;
+                }
+                if (!res.ok) {
+                    const error = new Error(data.detail || '请求失败');
+                    error.status = res.status;
+                    error.detail = data.detail;
+                    throw error;
+                }
+                return data;
+            } catch (e) {
+                console.error("API Error:", e);
+                // 如果是402错误，继续抛出
+                if (e.status === 402) throw e;
+                return null;
+            }
+        }
+
+        async function handleLogin() {
+            const user = document.getElementById('login-user').value;
+            const pass = document.getElementById('login-pass').value;
+            if(!user || !pass) return alert('请输入用户名和密码');
+            const formData = new FormData();
+            formData.append('username', user);
+            formData.append('password', pass);
+            try {
+                const res = await fetch('/api/v1/auth/login', { method: 'POST', body: formData });
+                if (res.ok) {
+                    const data = await res.json();
+                    authToken = data.access_token;
+                    localStorage.setItem('aio_token', authToken);
+                    handleCloseModal('reg-modal');
+                    initApp();
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || '登录失败，请检查用户名或密码');
+                }
+            } catch (e) { alert('登录请求失败'); }
+        }
+
+        async function handleWechatLogin() {
+            const mockWechatId = 'wx_mock_' + Math.random().toString(36).substr(2, 9);
+            try {
+                const res = await fetch(`/api/v1/auth/wechat-login?wechat_id=${mockWechatId}`, { method: 'POST' });
+                if (res.ok) {
+                    const data = await res.json();
+                    authToken = data.access_token;
+                    localStorage.setItem('aio_token', authToken);
+                    handleCloseModal('reg-modal');
+                    initApp();
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || '微信未绑定');
+                }
+            } catch (e) { alert('微信登录请求失败'); }
+        }
+
+        async function handleSendEmailCode() {
+            const email = document.getElementById('reg-email').value;
+            if(!email) return alert('请输入邮箱');
+            try {
+                const res = await fetch(`/api/v1/auth/send-email-code?email=${encodeURIComponent(email)}`, { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                const codeMatch = data.message.match(/\(演示: (\d+)\)/);
+                if(codeMatch) document.getElementById('reg-code').value = codeMatch[1];
+            } catch (e) { alert('获取验证码失败'); }
+        }
+
+        async function handleRegister() {
+            const username = document.getElementById('reg-user').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-pass').value;
+            const code = document.getElementById('reg-code').value;
+            if(!username || !email || !password || !code) return alert('请填写完整信息');
+            try {
+                const res = await fetch('/api/v1/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password, code })
+                });
+                if (res.ok) {
+                    alert('注册成功！');
+                    toggleAuthMode('login');
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || '注册失败');
+                }
+            } catch (e) { alert('注册请求失败'); }
+        }
+
+        function toggleAuthMode(mode) {
+            document.getElementById('login-box').classList.toggle('hidden', mode === 'reg');
+            document.getElementById('reg-box').classList.toggle('hidden', mode === 'login');
+            document.getElementById('auth-title').innerText = mode === 'login' ? '欢迎登录 AIOps+' : '创建 AIOps+ 账号';
+        }
+
+        function handleShowModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function handleCloseModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function showInsufficientBalance() { handleShowModal('insufficient-balance-modal'); }
+        function handleShowRiskAgreement() { handleShowModal('risk-agreement-modal'); }
+        function handleLogout() { localStorage.removeItem('aio_token'); location.reload(); }
+        
+        // 头像下拉菜单
+        function toggleAvatarDropdown() {
+            const dropdown = document.getElementById('avatar-dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('hidden');
+            }
+        }
+        
+        // 点击外部关闭下拉菜单
+        document.addEventListener('click', function(event) {
+            const avatar = document.getElementById('header-avatar');
+            const dropdown = document.getElementById('avatar-dropdown');
+            if (dropdown && avatar && !avatar.contains(event.target) && !dropdown.contains(event.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        // 忘记密码相关函数
+        let forgotChannel = 'email';
+        function showForgotPassword() {
+            handleShowModal('forgot-password-modal');
+            setForgotChannel('email');
+        }
+        function closeForgotPassword() {
+            handleCloseModal('forgot-password-modal');
+            document.getElementById('forgot-email').value = '';
+            document.getElementById('forgot-phone').value = '';
+            document.getElementById('forgot-email-code').value = '';
+            document.getElementById('forgot-sms-code').value = '';
+            document.getElementById('forgot-new-password').value = '';
+        }
+        function setForgotChannel(channel) {
+            forgotChannel = channel;
+            const emailBox = document.getElementById('forgot-email-box');
+            const smsBox = document.getElementById('forgot-sms-box');
+            const emailBtn = document.getElementById('forgot-email-btn');
+            const smsBtn = document.getElementById('forgot-sms-btn');
+            
+            if (channel === 'email') {
+                emailBox.classList.remove('hidden');
+                smsBox.classList.add('hidden');
+                emailBtn.classList.add('border-blue-600', 'bg-blue-50', 'text-blue-600');
+                emailBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
+                smsBtn.classList.remove('border-blue-600', 'bg-blue-50', 'text-blue-600');
+                smsBtn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
+            } else {
+                emailBox.classList.add('hidden');
+                smsBox.classList.remove('hidden');
+                smsBtn.classList.add('border-blue-600', 'bg-blue-50', 'text-blue-600');
+                smsBtn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
+                emailBtn.classList.remove('border-blue-600', 'bg-blue-50', 'text-blue-600');
+                emailBtn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
+            }
+        }
+        async function handleSendForgotEmailCode() {
+            const email = document.getElementById('forgot-email').value;
+            if (!email) return alert('请输入邮箱');
+            const btn = document.getElementById('btn-forgot-email-code');
+            btn.disabled = true;
+            try {
+                const res = await fetch(`/api/v1/auth/send-email-code?email=${encodeURIComponent(email)}`, { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                const codeMatch = data.message.match(/\(演示: (\d+)\)/);
+                if(codeMatch) document.getElementById('forgot-email-code').value = codeMatch[1];
+            } catch (e) {
+                alert('获取验证码失败');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        async function handleSendForgotSmsCode() {
+            const phone = document.getElementById('forgot-phone').value;
+            if (!phone) return alert('请输入手机号');
+            const btn = document.getElementById('btn-forgot-sms-code');
+            btn.disabled = true;
+            try {
+                const res = await api('/user/send-sms', 'POST', { phone });
+                alert(res.message || '验证码已发送');
+            } catch (e) {
+                alert('获取验证码失败：' + (e.message || String(e)));
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        async function handleResetPassword() {
+            const channel = forgotChannel;
+            const target = channel === 'email' ? document.getElementById('forgot-email').value : document.getElementById('forgot-phone').value;
+            const code = channel === 'email' ? document.getElementById('forgot-email-code').value : document.getElementById('forgot-sms-code').value;
+            const newPassword = document.getElementById('forgot-new-password').value;
+            
+            if (!target || !code || !newPassword) return alert('请填写完整信息');
+            if (newPassword.length < 8) return alert('新密码至少8位');
+            
+            try {
+                const res = await fetch('/api/v1/auth/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channel, target, code, new_password: newPassword })
+                });
+                if (res.ok) {
+                    alert('密码重置成功，请使用新密码登录');
+                    closeForgotPassword();
+                    toggleAuthMode('login');
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || '密码重置失败');
+                }
+            } catch (e) {
+                alert('密码重置请求失败');
+            }
+        }
+
+        // --- Other functions (Dashboard, Chat, SSH, KB) kept and updated with correct names ---
+        async function initApp() {
+            if(!authToken) return;
+            updateStats();
+            updateProfile();
+            loadPrivateKB();
+            loadHosts();
+        }
+
+        window.onload = () => {
+            if (authToken) initApp();
+            else handleShowModal('reg-modal');
+            document.getElementById('risk-agree').onchange = (e) => document.getElementById('reg-btn').disabled = !e.target.checked;
+        };
+    </script>
+
+<script>
+
+// --- 补齐：菜单切换 / 数据加载（最小可用版）---
+const SECTION_TITLES = {
+  dashboard: '仪表盘',
+  chat: '智能问答',
+  ssh: '主机管理',
+  knowledge: '知识库',
+  billing: '充值中心',
+  usage: '用量明细',
+  profile: '个人信息',
+  contact: '联系我们',
+  ops: '运营看板',
+  'license-approve': 'License 审批',
+};
+
+
+
+function _consoleBasePrefix(){
+  // 控制台可能被反向代理到 /console/ 前缀；为了兼容同域名下不同挂载路径，这里动态判断。
+  try {
+    const p = (window.location && window.location.pathname) ? window.location.pathname : '/';
+    return p.startsWith('/console/') ? '/console' : '';
+  } catch (e) { return ''; }
+}
+
+function openUserManual(){
+  const base = _consoleBasePrefix();
+  const url = base + '/static/user-manual.html';
+  window.open(url, '_blank', 'noopener');
+}
+
+function showSection(section, el) {
+  // 1) 切换展示
+  document.querySelectorAll('[id^="section-"]').forEach(n => n.classList.add('hidden'));
+  const target = document.getElementById('section-' + section);
+  if (target) target.classList.remove('hidden');
+
+  // 2) 标题
+  const title = document.getElementById('section-title');
+  if (title) title.innerText = SECTION_TITLES[section] || section;
+
+  // 3) 侧边栏激活态
+  document.querySelectorAll('.sidebar-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  // 4) 进入页面时触发数据加载
+  try {
+    if (section === 'dashboard') {
+      updateStats();
+      // 延迟渲染图表，确保DOM已准备好
+      setTimeout(() => {
+        if (costChart) costChart.resize();
+        if (requestsChart) requestsChart.resize();
+        if (tokensChart) tokensChart.resize();
+      }, 100);
+    }
+    if (section === 'ssh') loadHosts();
+    if (section === 'knowledge') loadPrivateKB();
+    if (section === 'profile') updateProfile();
+        if (section === 'ops') {
+      // 直接加载运营看板数据
+      (async function() {
+        try {
+          const data = await api('/admin/ops/overview');
+          if (data) {
+            setText('ops-total-users', (data.total_users || 0).toString());
+            setText('ops-personal-users', (data.personal_users || 0).toString());
+            setText('ops-enterprise-users', (data.enterprise_users || 0).toString());
+            setText('ops-today-registrations', (data.today_registrations || 0).toString());
+            setText('ops-today-revenue', '￥' + (data.today_revenue || 0).toFixed(2));
+            setText('ops-week-revenue', '￥' + (data.week_revenue || 0).toFixed(2));
+            setText('ops-month-revenue', '￥' + (data.month_revenue || 0).toFixed(2));
+            
+            // 渲染图表
+            if (typeof echarts !== 'undefined') {
+              const regChartEl = document.getElementById('ops-registrations-chart');
+              if (regChartEl) {
+                if (!window.opsRegistrationsChart) {
+                  window.opsRegistrationsChart = echarts.init(regChartEl, null, {
+                    devicePixelRatio: window.devicePixelRatio || 1
+                  });
+                }
+                const labels = [];
+                for (let i = 29; i >= 0; i--) {
+                  const date = new Date();
+                  date.setDate(date.getDate() - i);
+                  labels.push(`${date.getMonth() + 1}-${date.getDate()}`);
+                }
+                window.opsRegistrationsChart.setOption({
+                  tooltip: { trigger: 'axis' },
+                  xAxis: { type: 'category', data: labels },
+                  yAxis: { type: 'value' },
+                  series: [{
+                    name: '注册数',
+                    data: data.registration_trend || [],
+                    type: 'line',
+                    smooth: true,
+                    itemStyle: { color: '#3b82f6' },
+                    areaStyle: { color: 'rgba(59, 130, 246, 0.1)' }
+                  }]
+                });
+                window.opsRegistrationsChart.resize();
+              }
+              
+              const revChartEl = document.getElementById('ops-revenue-chart');
+              if (revChartEl) {
+                if (!window.opsRevenueChart) {
+                  window.opsRevenueChart = echarts.init(revChartEl, null, {
+                    devicePixelRatio: window.devicePixelRatio || 1
+                  });
+                }
+                const labels = [];
+                for (let i = 29; i >= 0; i--) {
+                  const date = new Date();
+                  date.setDate(date.getDate() - i);
+                  labels.push(`${date.getMonth() + 1}-${date.getDate()}`);
+                }
+                window.opsRevenueChart.setOption({
+                  tooltip: { trigger: 'axis', formatter: '{b}: ￥{c}' },
+                  xAxis: { type: 'category', data: labels },
+                  yAxis: { type: 'value' },
+                  series: [{
+                    name: '营收',
+                    data: data.revenue_trend || [],
+                    type: 'bar',
+                    itemStyle: { color: '#10b981' }
+                  }]
+                });
+                window.opsRevenueChart.resize();
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[运营看板] 加载失败:', error);
+        }
+      })();
+    }
+    if (section === 'usage') loadUsageHistory?.();
+    if (section === 'billing') refreshBalance?.();
+    if (section === 'chat') {
+      // 聊天页需要资产列表给“排障&部署”模式使用
+      loadHosts();
+      renderChat();
+    }
+    if (section === 'license-approve') {
+      loadLicenseApplications();
+    }
+  } catch (e) {
+    console.error('showSection hook error:', e);
+  }
+}
+
+// ---- License approval (admin only) ----
+let __licenseAppsCache = [];
+async function loadLicenseApplications(){
+  const tb = document.getElementById('license-approve-tbody');
+  if (tb) tb.innerHTML = `<tr><td class="py-3 text-slate-500" colspan="7">加载中...</td></tr>`;
+  try{
+    const data = await api('/admin/license/applications');
+    __licenseAppsCache = (data && data.items) ? data.items : [];
+    renderLicenseApplications();
+  }catch(e){
+    console.error('loadLicenseApplications error:', e);
+    if (tb) tb.innerHTML = `<tr><td class="py-3 text-slate-500" colspan="7">加载失败：${escapeHtml(String(e && e.message ? e.message : e))}</td></tr>`;
+  }
+}
+
+function renderLicenseApplications(){
+  const tb = document.getElementById('license-approve-tbody');
+  if (!tb) return;
+  const items = __licenseAppsCache || [];
+  if (!items.length){
+    tb.innerHTML = `<tr><td class="py-3 text-slate-500" colspan="7">暂无申请</td></tr>`;
+    return;
+  }
+  tb.innerHTML = items.map(it => {
+    const id = it.id;
+    const daysSel = `
+      <select id="lic-days-${id}" class="px-2 py-1 bg-slate-50 border rounded-lg text-xs">
+        <option value="30">30天</option>
+        <option value="90">90天</option>
+        <option value="365" selected>365天</option>
+        <option value="730">730天</option>
+      </select>
+    `;
+    return `
+      <tr class="border-t border-slate-100">
+        <td class="py-2 font-mono text-xs">${id}</td>
+        <td class="py-2 font-bold">${escapeHtml(it.status || '-')}</td>
+        <td class="py-2">${escapeHtml(it.product || '')}</td>
+        <td class="py-2 font-mono text-[11px] break-all">${escapeHtml(it.machine_code || '')}</td>
+        <td class="py-2 text-xs text-slate-500">
+          <div>公司：${escapeHtml(it.company || '')}</div>
+          <div>联系人：${escapeHtml(it.contact_name || '')}</div>
+          <div>邮箱：${escapeHtml(it.email || '')}</div>
+          <div>电话：${escapeHtml(it.phone || '')}</div>
+        </td>
+        <td class="py-2 text-xs text-slate-500">
+          <div>创建：${escapeHtml(it.created_at || '')}</div>
+          <div>更新：${escapeHtml(it.updated_at || '')}</div>
+        </td>
+        <td class="py-2 text-right">
+          <div class="flex justify-end items-center gap-2 flex-wrap">
+            ${daysSel}
+            <button class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold" onclick="approveLicenseApp(${id})">通过</button>
+            <button class="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-bold" onclick="rejectLicenseApp(${id})">驳回</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function approveLicenseApp(id){
+  const days = parseInt(document.getElementById(`lic-days-${id}`)?.value || '365', 10);
+  const res = await api(`/admin/license/applications/${id}/approve`, 'POST', { days });
+  // 给管理员复制 token（前端不存储）
+  prompt('license_token（请复制保存并发给申请方）', (res && res.license_token) ? res.license_token : '');
+  await loadLicenseApplications();
+}
+
+async function rejectLicenseApp(id){
+  const reason = prompt('驳回原因（可选）','') || '';
+  await api(`/admin/license/applications/${id}/reject?reason=${encodeURIComponent(reason)}`, 'POST');
+  alert('已驳回');
+  await loadLicenseApplications();
+}
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.innerText = text;
+}
+
+function setHTML(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
+async function updateStats() {
+  const data = await api('/dashboard/stats');
+  if (!data) return;
+  setText('stat-hosts', String(data.host_count ?? 0));
+  setText('stat-usage', String(data.usage_count ?? 0));
+  setText('stat-kb', String(data.kb_count ?? 0));
+  const bal = Number(data.balance ?? 0).toFixed(2);
+  setText('stat-balance', '￥' + bal);
+  setText('sidebar-balance', '￥' + bal);
+  
+  // 加载用量图表
+  await loadUsageCharts();
+}
+
+// 加载用量图表
+let costChart = null;
+let requestsChart = null;
+let tokensChart = null;
+
+async function loadUsageCharts(month = '') {
+  try {
+    const url = month ? `/usage/series?month=${month}` : '/usage/series';
+    const data = await api(url);
+    if (!data) return;
+
+    // 更新总计
+    const totalCost = data.cost_sums.reduce((a, b) => a + b, 0);
+    const totalRequests = data.task_counts.reduce((a, b) => a + b, 0);
+    const totalTokens = data.tokens_sums.reduce((a, b) => a + b, 0);
+    
+    setText('total-cost', '¥' + totalCost.toFixed(2));
+    setText('total-requests', totalRequests.toLocaleString());
+    setText('total-tokens', totalTokens.toLocaleString());
+
+    // 格式化日期标签（只显示日期）
+    const labels = data.labels.map(d => {
+      const date = new Date(d);
+      return `${date.getMonth() + 1}-${date.getDate()}`;
+    });
+
+    // 1. 消费金额趋势图（柱状图）
+    if (!costChart) {
+      costChart = echarts.init(document.getElementById('cost-chart'));
+    }
+    costChart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          const date = data.labels[params[0].dataIndex];
+          return `${date}<br/>${params[0].seriesName}: ¥${params[0].value.toFixed(2)}`;
+        }
+      },
+      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        axisLabel: { fontSize: 10 }
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: { formatter: '¥{value}' }
+      },
+      series: [{
+        name: '消费金额',
+        type: 'bar',
+        data: data.cost_sums,
+        itemStyle: { color: '#f97316' },
+        emphasis: { focus: 'series' }
+      }]
+    });
+
+    // 2. API请求次数（面积图）
+    if (!requestsChart) {
+      requestsChart = echarts.init(document.getElementById('requests-chart'));
+    }
+    requestsChart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          const date = data.labels[params[0].dataIndex];
+          return `${date}<br/>${params[0].seriesName}: ${params[0].value}`;
+        }
+      },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        axisLabel: { fontSize: 9, rotate: 45 }
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: { fontSize: 9 }
+      },
+      series: [{
+        name: 'API请求次数',
+        type: 'line',
+        areaStyle: { color: '#3b82f6' },
+        data: data.task_counts,
+        smooth: true,
+        itemStyle: { color: '#3b82f6' }
+      }]
+    });
+
+    // 3. Tokens使用量（柱状图）
+    if (!tokensChart) {
+      tokensChart = echarts.init(document.getElementById('tokens-chart'));
+    }
+    tokensChart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          const date = data.labels[params[0].dataIndex];
+          return `${date}<br/>${params[0].seriesName}: ${params[0].value.toLocaleString()}`;
+        }
+      },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        axisLabel: { fontSize: 9, rotate: 45 }
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: { fontSize: 9, formatter: function(value) {
+          if (value >= 1000) return (value / 1000).toFixed(1) + 'k';
+          return value;
+        }}
+      },
+      series: [{
+        name: 'Tokens',
+        type: 'bar',
+        data: data.tokens_sums,
+        itemStyle: { color: '#3b82f6' },
+        emphasis: { focus: 'series' }
+      }]
+    });
+
+    // 初始化月份选择器
+    initMonthSelector(data.month);
+  } catch (e) {
+    console.error('加载用量图表失败:', e);
+  }
+}
+
+// 初始化月份选择器
+function initMonthSelector(currentMonth) {
+  const select = document.getElementById('usage-month-select');
+  if (!select || select.options.length > 1) return; // 已初始化
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMon = now.getMonth() + 1;
+
+  // 生成最近12个月
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(currentYear, currentMon - 1 - i, 1);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const value = `${year}-${String(month).padStart(2, '0')}`;
+    const label = `${year}年${month}月`;
+    
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    if (value === currentMonth) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  }
+
+  // 监听月份变化
+  select.addEventListener('change', function() {
+    loadUsageCharts(this.value || '');
+  });
+}
+
+// 导出数据
+function exportUsageData() {
+  const month = document.getElementById('usage-month-select')?.value || '';
+  const url = month ? `/api/v1/usage/series?month=${month}` : '/api/v1/usage/series';
+  window.open(url, '_blank');
+}
+
+// 加载运营看板数据
+let opsRegistrationsChart = null;
+let opsRevenueChart = null;
+
+async function loadOpsOverview() {
+  try {
+    console.log('[loadOpsOverview] 开始加载运营数据...');
+    const data = await api('/admin/ops/overview');
+    if (!data) {
+      console.warn('[loadOpsOverview] 数据为空');
+      return;
+    }
+    
+    console.log('[loadOpsOverview] 数据加载成功:', data);
+    
+    // 更新统计数据
+    setText('ops-total-users', (data.total_users || 0).toString());
+    setText('ops-personal-users', (data.personal_users || 0).toString());
+    setText('ops-enterprise-users', (data.enterprise_users || 0).toString());
+    setText('ops-today-registrations', (data.today_registrations || 0).toString());
+    setText('ops-today-revenue', '￥' + (data.today_revenue || 0).toFixed(2));
+    setText('ops-week-revenue', '￥' + (data.week_revenue || 0).toFixed(2));
+    setText('ops-month-revenue', '￥' + (data.month_revenue || 0).toFixed(2));
+    
+    // 渲染注册趋势图
+    if (typeof echarts !== 'undefined') {
+      const chartEl = document.getElementById('ops-registrations-chart');
+      if (chartEl) {
+        if (!opsRegistrationsChart) {
+          opsRegistrationsChart = echarts.init(chartEl, null, {
+            devicePixelRatio: window.devicePixelRatio || 1
+          });
+        }
+        
+        const labels = [];
+        for (let i = 29; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          labels.push(`${date.getMonth() + 1}-${date.getDate()}`);
+        }
+        
+        opsRegistrationsChart.setOption({
+          tooltip: { trigger: 'axis' },
+          xAxis: { type: 'category', data: labels },
+          yAxis: { type: 'value' },
+          series: [{
+            name: '注册数',
+            data: data.registration_trend || [],
+            type: 'line',
+            smooth: true,
+            itemStyle: { color: '#3b82f6' },
+            areaStyle: { color: 'rgba(59, 130, 246, 0.1)' }
+          }]
+        });
+        opsRegistrationsChart.resize();
+      }
+      
+      // 渲染营收趋势图
+      const revenueEl = document.getElementById('ops-revenue-chart');
+      if (revenueEl) {
+        if (!opsRevenueChart) {
+          opsRevenueChart = echarts.init(revenueEl, null, {
+            devicePixelRatio: window.devicePixelRatio || 1
+          });
+        }
+        
+        const labels = [];
+        for (let i = 29; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          labels.push(`${date.getMonth() + 1}-${date.getDate()}`);
+        }
+        
+        opsRevenueChart.setOption({
+          tooltip: { trigger: 'axis', formatter: '{b}: ￥{c}' },
+          xAxis: { type: 'category', data: labels },
+          yAxis: { type: 'value' },
+          series: [{
+            name: '营收',
+            data: data.revenue_trend || [],
+            type: 'bar',
+            itemStyle: { color: '#10b981' }
+          }]
+        });
+        opsRevenueChart.resize();
+      }
+    }
+  } catch (error) {
+    console.error('[loadOpsOverview] 加载失败:', error);
+  }
+}
+
+
+
+async function updateProfile() {
+  const data = await api('/user/profile');
+  if (!data) return;
+  setText('header-username', data.username || '');
+  setText('prof-user', data.username || '');
+  setText('prof-email', data.email || '');
+  setText('prof-phone', data.phone || '未绑定');
+  setText('prof-date', data.created_at || '');
+  setText('prof-type', data.user_type || '');
+  setText('prof-wechat', data.is_wechat_bound ? '已绑定' : '未绑定');
+
+  const badge = document.getElementById('prof-verif-badge');
+  if (badge) {
+    const st = data.real_name_status || 'none';
+    let className = 'px-2 py-0.5 rounded text-[10px] font-bold ';
+    let text = '未认证';
+    if (st === 'enterprise') {
+      className += 'bg-emerald-50 text-emerald-700';
+      text = '企业已认证';
+    } else if (st === 'enterprise_pending') {
+      className += 'bg-yellow-50 text-yellow-700';
+      text = '企业待审核';
+    } else if (st === 'personal') {
+      className += 'bg-blue-50 text-blue-700';
+      text = '个人已认证';
+    } else if (st === 'personal_pending') {
+      className += 'bg-yellow-50 text-yellow-700';
+      text = '个人待审核';
+    } else {
+      className += 'bg-slate-100 text-slate-500';
+    }
+    badge.className = className;
+    badge.innerText = text;
+  }
+  
+  // 如果是管理员，显示审核入口
+  if (data.is_admin) {
+    const adminBtn = document.getElementById('admin-review-btn');
+    if (adminBtn) adminBtn.style.display = 'block';
+  }
+
+  const bal = Number(data.balance ?? 0).toFixed(2);
+  setText('sidebar-balance', '￥' + bal);
+  
+  // 显示/隐藏运营看板菜单（仅管理员可见）
+  const navOps = document.getElementById('nav-ops');
+  if (navOps) {
+    if (data.is_admin) {
+      navOps.classList.remove('hidden');
+    } else {
+      navOps.classList.add('hidden');
+    }
+  }
+
+  // 显示/隐藏 License 审批菜单（仅管理员可见）
+  const navLic = document.getElementById('nav-license-approve');
+  if (navLic) {
+    if (data.is_admin) {
+      navLic.classList.remove('hidden');
+    } else {
+      navLic.classList.add('hidden');
+    }
+  }
+}
+
+async function loadHosts() {
+  // dedupe by ip:port to avoid重复显示
+  const list0 = await api('/ssh/hosts');
+  if (!list0) return;
+  const seen = new Set();
+  const list = [];
+  (list0 || []).forEach(h => {
+    const k = `${h.ip}:${h.port}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    list.push(h);
+  });
+  window._hostsCache = list;
+
+  // 主机卡片列表
+  const wrap = document.getElementById('host-list');
+  if (wrap) {
+    wrap.innerHTML = '';
+    (list || []).forEach(h => {
+      const div = document.createElement('div');
+      div.className = 'glass-card p-5 rounded-2xl relative';
+      div.innerHTML = `
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="font-bold text-sm">${h.name || '未命名主机'}</div>
+            <div class="text-xs text-slate-400 mt-1">${h.ip}:${h.port} / ${h.username}</div>
+          </div>
+          <button class="text-slate-300 hover:text-red-500" title="删除" onclick="handleDeleteHost(${h.id})"><i class="fas fa-trash"></i></button>
+        </div>
+      `;
+      wrap.appendChild(div);
+    });
+  }
+
+  // 排障&部署 多选列表（Cursor 风格：仅在聊天里授权执行，不再提供左侧 Terminal）
+  const cb = document.getElementById('host-checkbox-list');
+  if (cb) {
+    cb.innerHTML = '';
+    (list || []).forEach(h => {
+      const lab = document.createElement('label');
+      lab.className = 'flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs cursor-pointer';
+      lab.innerHTML = `<input type="checkbox" class="host-cb" value="${h.id}" /> <span class="font-bold">${h.ip}</span><span class="text-slate-400">:${h.port}</span>`;
+      cb.appendChild(lab);
+    });
+  }
+}
+
+
+async function handleAddHost() {
+  const name = document.getElementById('ssh-name')?.value || '';
+  const ip = document.getElementById('ssh-ip')?.value || '';
+  const port = Number(document.getElementById('ssh-port')?.value || 22);
+  const username = document.getElementById('ssh-user')?.value || '';
+  const password = document.getElementById('ssh-pass')?.value || '';
+  if (!ip || !username || !password) return alert('请填写 IP/用户名/密码');
+  const res = await api('/ssh/hosts', 'POST', { name, ip, port, username, password });
+  if (res?.message) alert(res.message);
+  await loadHosts();
+}
+
+async function handleDeleteHost(id) {
+  if (!(await uiConfirm('确认删除该主机？'))) return;
+  const res = await api(`/ssh/hosts/${id}`, 'DELETE');
+  if (res?.message) alert(res.message);
+  await loadHosts();
+}
+
+async function handleTestSSH() {
+  const name = document.getElementById('ssh-name')?.value || '';
+  const ip = document.getElementById('ssh-ip')?.value || '';
+  const port = Number(document.getElementById('ssh-port')?.value || 22);
+  const username = document.getElementById('ssh-user')?.value || '';
+  const password = document.getElementById('ssh-pass')?.value || '';
+  if (!ip || !username || !password) return alert('请填写 IP/用户名/密码');
+  const res = await api('/ssh/test', 'POST', { name, ip, port, username, password });
+  alert(res?.message || res?.detail || '测试完成');
+}
+
+let privateKBAll = [];
+let kbFiltered = [];
+let kbPage = 1;
+const KB_PAGE_SIZE = 12;
+
+function handleFilterKB() {
+  const q = (document.getElementById('kb-search')?.value || '').trim().toLowerCase();
+  kbFiltered = privateKBAll.filter(it => {
+    const t = String(it.title || '').toLowerCase();
+    const c = String(it.content || '').toLowerCase();
+    return !q || t.includes(q) || c.includes(q);
+  });
+  kbPage = 1;
+  renderKB();
+}
+
+function handleChangeKBPage(delta) {
+  const maxPage = Math.max(1, Math.ceil((kbFiltered.length || 0) / KB_PAGE_SIZE));
+  kbPage = Math.min(maxPage, Math.max(1, kbPage + delta));
+  renderKB();
+}
+
+function renderKB() {
+  const wrap = document.getElementById('kb-private-list');
+  if (!wrap) return;
+  const maxPage = Math.max(1, Math.ceil((kbFiltered.length || 0) / KB_PAGE_SIZE));
+  const start = (kbPage - 1) * KB_PAGE_SIZE;
+  const pageItems = kbFiltered.slice(start, start + KB_PAGE_SIZE);
+
+  wrap.innerHTML = '';
+  pageItems.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'glass-card p-5 rounded-2xl hover:shadow-md transition cursor-pointer relative';
+    const summary = (it.content || '').slice(0, 120);
+    div.innerHTML = `
+      <div class="font-bold text-sm text-slate-800 mb-2">${it.title || '未命名条目'}</div>
+      <div class="text-xs text-slate-500 leading-relaxed">${summary}${(it.content || '').length > 120 ? '...' : ''}</div>
+      <button class="absolute top-4 right-4 text-slate-300 hover:text-red-500" onclick="event.stopPropagation(); handleDeleteKB(${it.id});"><i class="fas fa-trash"></i></button>
+    `;
+    div.onclick = () => {
+      const modal = document.getElementById('kb-detail-modal');
+      const title = document.getElementById('kb-detail-title');
+      const body = document.getElementById('kb-detail-content');
+      if (title) title.innerText = it.title || '';
+      if (body) {
+        // 知识库内容：用 Markdown 渲染（与聊天一致）
+        body.classList.add('markdown-body');
+        body.classList.remove('whitespace-pre-wrap');
+        try {
+          body.innerHTML = marked.parse(it.content || '');
+          body.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+        } catch {
+          body.innerText = it.content || '';
+        }
+      }
+      if (modal) handleShowModal('kb-detail-modal');
+    };
+    wrap.appendChild(div);
+  });
+
+  setText('kb-page-info', `第 ${kbPage} / ${maxPage} 页`);
+  const prev = document.getElementById('btn-kb-prev');
+  const next = document.getElementById('btn-kb-next');
+  if (prev) prev.disabled = kbPage <= 1;
+  if (next) next.disabled = kbPage >= maxPage;
+}
+
+async function loadPrivateKB() {
+  const items = await api('/kb/private');
+  if (!items) return;
+  privateKBAll = (items || []).slice().sort((a,b) => (b.id||0)-(a.id||0));
+  kbFiltered = privateKBAll;
+  kbPage = 1;
+  renderKB();
+}
+
+async function handleDeleteKB(id) {
+  if (!(await uiConfirm('确认删除该知识条目？'))) return;
+  const res = await api(`/kb/private/${id}`, 'DELETE');
+  if (res?.message) alert(res.message);
+  await loadPrivateKB();
+  await updateStats();
+}
+
+// --- Chat: 最小可用（方案咨询/代码编写 调 /ask）---
+let qaHistory = window.qaHistory || [];
+let codeHistory = window.codeHistory || [];
+let opsHistory = window.opsHistory || [];
+
+function handleSetChatMode(mode) {
+  chatMode = mode;
+  document.getElementById('mode-qa')?.classList.toggle('bg-blue-600', mode==='qa');
+  document.getElementById('mode-qa')?.classList.toggle('text-white', mode==='qa');
+  document.getElementById('mode-code')?.classList.toggle('bg-blue-600', mode==='code');
+  document.getElementById('mode-code')?.classList.toggle('text-white', mode==='code');
+  document.getElementById('mode-ops')?.classList.toggle('bg-blue-600', mode==='ops');
+  document.getElementById('mode-ops')?.classList.toggle('text-white', mode==='ops');
+
+  document.getElementById('host-selector-wrap')?.classList.toggle('hidden', mode!=='ops');
+
+  const input = document.getElementById('chat-input');
+  if (input) {
+    input.placeholder = mode==='code'
+      ? '输入你的开发需求（将输出可运行代码）...'
+      : mode==='ops'
+        ? '输入要执行的排障/部署指令（会生成计划，并在对话里提供“授权执行/取消”）...'
+        : '输入问题/方案需求...';
+  }
+
+  // 切到 ops 时刷新主机列表（同时渲染终端主机）
+  if (mode === 'ops') {
+    loadHosts();
+  }
+
+  renderChat();
+}
+
+
+function handleNewChat() {
+  if (chatMode==='qa') qaHistory = [];
+  if (chatMode==='code') codeHistory = [];
+  if (chatMode==='ops') opsHistory = [];
+  renderChat();
+}
+
+function renderChat() {
+  const box = document.getElementById('chat-box');
+  if (!box) return;
+  box.innerHTML = '';
+  const hist = chatMode==='qa' ? qaHistory : chatMode==='code' ? codeHistory : opsHistory;
+  const isGeneratingPlaceholder = (m) => {
+    if (!m || m.role !== 'assistant' || m.kind === 'ops_card') return false;
+    const t = String(m.content || '').trim();
+    // 发送后即时反馈的占位文案（未生成出真正方案/回答前，不显示知识库按钮）
+    return t === '正在生成中...' || t === '正在生成中' || t === '正在生成执行计划...' || t === '正在生成执行计划...';
+  };
+  if (!hist.length) {
+    const tip = document.createElement('div');
+    tip.className = 'text-xs text-slate-400';
+    tip.innerText = chatMode==='code'
+      ? '请输入需求，我将输出可运行的代码。'
+      : chatMode==='ops'
+        ? '请选择主机后，在对话框输入要执行的指令；我会生成计划，并在对话中提供“授权执行/取消”。'
+        : '请输入问题/方案需求。';
+    box.appendChild(tip);
+    return;
+  }
+
+  const lastAssistantIndex = (() => {
+    for (let i = hist.length - 1; i >= 0; i--) {
+      if (hist[i].role === 'assistant') return i;
+    }
+    return -1;
+  })();
+
+  hist.forEach((m, i) => {
+    const row = document.createElement('div');
+    row.className = m.role==='user' ? 'flex flex-col items-end gap-2' : 'flex flex-col items-start gap-2';
+
+    const bubble = document.createElement('div');
+    bubble.className = (m.role==='user'
+      ? 'max-w-[80%] bg-blue-600 text-white rounded-2xl px-4 py-3 text-sm'
+      : 'max-w-[80%] bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-sm markdown-body');
+
+    // OPS：授权卡片（Cursor 风格：内联在聊天气泡里）
+    if (m.role==='assistant' && m.kind === 'ops_card') {
+      const card = window.opsCards?.[m.cardId];
+      bubble.className = 'max-w-[92%] bg-white border border-slate-200 rounded-2xl px-4 py-4 text-sm shadow-sm';
+      bubble.innerHTML = renderOpsCardHtml(m.cardId, card);
+    } else if (m.role==='assistant') {
+      try {
+        bubble.innerHTML = marked.parse(m.content || '');
+        bubble.querySelectorAll('pre code').forEach((el) => hljs.highlightElement(el));
+      } catch {
+        bubble.innerText = m.content || '';
+      }
+    } else {
+      bubble.innerText = m.content || '';
+    }
+
+    row.appendChild(bubble);
+
+    // 仅在“方案咨询”模式，且为最后一条 assistant 时，追加“存入知识库”按钮
+    if (chatMode === 'qa' && m.role === 'assistant' && i === lastAssistantIndex && !isGeneratingPlaceholder(m)) {
+      const bar = document.createElement('div');
+      bar.className = 'max-w-[80%] flex items-center gap-2';
+      bar.innerHTML = `
+        <button class="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700" onclick="handleSaveLastAnswerToKB(this)">
+          <i class="fas fa-bookmark"></i> 将此方案存入私有知识库
+        </button>
+        <button class="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200" onclick="showSection('knowledge')">
+          <i class="fas fa-book"></i> 查看知识库
+        </button>
+      `;
+      row.appendChild(bar);
+    }
+
+    box.appendChild(row);
+  });
+
+  box.scrollTop = box.scrollHeight;
+}
+
+async function handleSendQuestion() {
+  const input = document.getElementById('chat-input');
+  const q0 = (input?.value || '').trim();
+  if (!q0) return;
+  if (input) input.value = '';
+
+  const hist = chatMode==='qa' ? qaHistory : chatMode==='code' ? codeHistory : opsHistory;
+  hist.push({ role: 'user', content: q0 });
+
+  // 立即反馈：插入占位回复，避免空白等待
+  const placeholder = { role: 'assistant', content: chatMode==='ops' ? '正在生成执行计划...' : '正在生成中...' };
+  hist.push(placeholder);
+  renderChat();
+
+  const btn = document.getElementById('btn-send') || document.querySelector('#section-chat button[onclick="handleSendQuestion()"]');
+  const oldText = btn?.innerText;
+  if (btn) { btn.disabled = true; btn.innerText = chatMode==='ops' ? '规划中...' : '生成中...'; }
+
+  try {
+    // 代码编写：增加专用提示词
+    const q = (chatMode === 'code')
+      ? `你是资深软件工程师。请直接输出可运行代码与必要的说明（含依赖/运行方式），优先给出完整文件内容。\n\n需求：${q0}`
+      : q0;
+
+    if (chatMode === 'ops') {
+      const checked = Array.from(document.querySelectorAll('.host-cb:checked')).map(x => Number(x.value)).filter(Boolean);
+      if (!checked.length) {
+        placeholder.content = '请先选择要执行的主机（可多选）。';
+        renderChat();
+        return;
+      }
+
+      // 直接使用用户需求，不要添加复杂的提示词（后端会处理）
+      const opsPrompt = q0;
+
+      // 逐主机生成计划（带进度提示），然后把"授权卡片"插入到对话中（不弹窗、不 confirm）
+      window.opsCards = window.opsCards || {};
+      let ok = 0;
+      const plans = [];
+      for (const hostId of checked) {
+        placeholder.content = `正在生成执行计划...（${ok}/${checked.length}）`;
+        renderChat();
+        try {
+          const res = await api('/ssh/propose','POST',{ host_id: hostId, task: opsPrompt });
+          if (res && res.plan) {
+            ok += 1;
+            plans.push({ host_id: hostId, host_ip: res.host_ip, plan: res.plan, task: q0 });
+          } else if (res && res.detail) {
+            // 检查是否是算力不足
+            if (res.detail.includes('算力不足') || res.detail.includes('点数不足')) {
+              placeholder.content = '';
+              opsHistory.pop(); // 移除占位消息
+              showInsufficientBalance();
+              renderChat();
+            } else {
+              placeholder.content = `生成计划失败：${res.detail}`;
+              renderChat();
+            }
+            return;
+          }
+        } catch (e) {
+          const errorMsg = e.message || e.detail || String(e);
+          if (e.status === 402 || errorMsg.includes('算力不足') || errorMsg.includes('点数不足')) {
+            placeholder.content = '';
+            opsHistory.pop();
+            showInsufficientBalance();
+            renderChat();
+            return;
+          }
+          placeholder.content = `生成计划失败：${errorMsg}`;
+          renderChat();
+          return;
+        }
+      }
+
+      if (!plans.length) {
+        placeholder.content = '未能生成任何可执行计划（请检查登录/主机选择/接口返回）。';
+        renderChat();
+        return;
+      }
+
+      placeholder.content = `计划已生成（${plans.length} 台主机）。请在下方卡片中勾选命令并点击“授权执行”，或点击“取消”。`;
+      // 为每台主机插入一张授权卡片
+      plans.forEach(p => {
+        const cardId = 'ops_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+        window.opsCards[cardId] = { ...p, status: 'pending' };
+        opsHistory.push({ role: 'assistant', kind: 'ops_card', cardId });
+      });
+      renderChat();
+      return;
+    }
+
+    // /ask
+    const token = authToken || localStorage.getItem('aio_token') || '';
+    const res = await fetch('/api/v1/ask?question=' + encodeURIComponent(q), {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+    const data = res.ok ? await res.json() : { answer: await res.text() };
+    const answer = data?.answer || data?.result || JSON.stringify(data);
+    placeholder.content = res.ok ? answer : ('请求失败：' + answer);
+    renderChat();
+    updateStats();
+  } catch (e) {
+    console.error(e);
+    placeholder.content = '请求异常：' + (e?.message || String(e));
+    renderChat();
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerText = oldText || '发送'; }
+  }
+}
+
+
+// 兜底：如果首屏没绑定 showSection，主动初始化一次
+
+
+function handleSelectAmount(v){
+  selectedAmount = Number(v);
+  document.querySelectorAll('.amount-btn').forEach(btn=>btn.classList.remove('bg-blue-600','text-white'));
+  // highlight clicked
+  const btns = Array.from(document.querySelectorAll('.amount-btn'));
+  const target = btns.find(b=>b.innerText.replace(/[^0-9]/g,'')==String(v));
+  if (target){ target.classList.add('bg-blue-600','text-white'); }
+}
+
+function handleSelectMethod(m){
+  selectedMethod = m;
+  const a = document.getElementById('btn-method-alipay');
+  const w = document.getElementById('btn-method-wechat');
+  if (a && w){
+    if (m==='alipay'){ a.classList.add('bg-blue-50'); w.classList.remove('bg-blue-50'); }
+    else { w.classList.add('bg-blue-50'); a.classList.remove('bg-blue-50'); }
+  }
+}
+
+async function refreshBalance(){
+  const data = await api('/usage/balance');
+  if(!data) return;
+  const bal = Number(data.balance ?? 0).toFixed(2);
+  const el = document.getElementById('billing-balance');
+  if (el) el.innerText = '￥' + bal;
+  const sb = document.getElementById('sidebar-balance');
+  if (sb) sb.innerText = '￥' + bal;
+}
+
+let currentUsagePage = 1;
+const usagePageSize = 50;
+
+
+
+async function loadUsageHistory(page = 1){
+  currentUsagePage = page;
+  const data = await api(`/usage/history?page=${page}&page_size=${usagePageSize}`);
+  const rows = data.items || data; // 兼容新旧格式
+  
+  const tb = document.getElementById('usage-tbody');
+  if (tb){
+    if (!rows || rows.length===0){ 
+      tb.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-slate-400">暂无数据</td></tr>'; 
+    } else {
+      tb.innerHTML = '';
+      rows.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.className='border-t border-slate-50';
+        tr.innerHTML = `<td class="py-2 text-slate-500">${r.date||''}</td><td class="py-2">${r.task||''}</td><td class="py-2 text-right font-bold">￥${Number(r.cost||0).toFixed(2)}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+  }
+  
+  // billing last (保持原有逻辑，使用第一页数据)
+  if (page === 1) {
+    const last = document.getElementById('billing-last');
+    if (last){
+      if (!rows || rows.length===0) last.innerHTML = '<div class="text-slate-400">暂无流水</div>';
+      else {
+        last.innerHTML = '';
+        rows.slice(0,6).forEach(r=>{
+          const d = document.createElement('div');
+          d.className='flex justify-between';
+          d.innerHTML = `<span class="text-slate-500">${r.task||''}</span><span class="font-bold">￥${Number(r.cost||0).toFixed(2)}</span>`;
+          last.appendChild(d);
+        })
+      }
+    }
+  }
+  
+  // 更新分页信息
+  if (data.total !== undefined) {
+    setText('usage-total-count', (data.total || 0).toString());
+    setText('usage-current-page', (data.page || 1).toString());
+    setText('usage-total-pages', (data.total_pages || 1).toString());
+    
+    // 更新分页按钮状态
+    const prevBtn = document.getElementById('usage-prev-btn');
+    const nextBtn = document.getElementById('usage-next-btn');
+    if (prevBtn) {
+      prevBtn.disabled = (data.page || 1) <= 1;
+    }
+    if (nextBtn) {
+      nextBtn.disabled = (data.page || 1) >= (data.total_pages || 1);
+    }
+  } else {
+    // 兼容旧格式（无分页）
+    setText('usage-total-count', (rows.length || 0).toString());
+    setText('usage-current-page', '1');
+    setText('usage-total-pages', '1');
+    const prevBtn = document.getElementById('usage-prev-btn');
+    const nextBtn = document.getElementById('usage-next-btn');
+    if (prevBtn) prevBtn.disabled = true;
+    if (nextBtn) nextBtn.disabled = true;
+  }
+}
+
+function handleOpenPayLink(){
+  if (paymentPayUrl) window.open(paymentPayUrl, '_blank');
+}
+
+function handleClosePaymentModal(){
+  const modal = document.getElementById('payment-modal');
+  if (modal) modal.classList.add('hidden');
+  if (paymentPolling){ clearInterval(paymentPolling); paymentPolling = null; }
+}
+
+function startPaymentPolling(orderNo){
+  if (paymentPolling){ clearInterval(paymentPolling); }
+  paymentPolling = setInterval(async ()=>{
+    const data = await api('/usage/recharge/order/' + orderNo);
+    if (!data) return;
+    const statusEl = document.getElementById('payment-status-text');
+    if (statusEl) statusEl.innerText = `当前状态：${data.status || 'pending'}`;
+    if (data.status === 'success'){
+      clearInterval(paymentPolling); paymentPolling = null;
+      if (statusEl) statusEl.innerText = '支付成功，余额已到账';
+      await refreshBalance();
+      await loadUsageHistory();
+      await updateStats();
+    }
+    if (data.status === 'failed'){
+      clearInterval(paymentPolling); paymentPolling = null;
+      if (statusEl) statusEl.innerText = '支付失败，请重新下单';
+    }
+  }, 3000);
+}
+
+function showPaymentModal(orderNo, method, amount, codeUrl, payUrl){
+  paymentOrderNo = orderNo;
+  paymentMethod = method;
+  paymentPayUrl = payUrl || '';
+  const modal = document.getElementById('payment-modal');
+  const amt = document.getElementById('payment-amount');
+  const label = document.getElementById('payment-method-label');
+  const qr = document.getElementById('payment-qr-img');
+  const txt = document.getElementById('payment-qr-text');
+  const openBtn = document.getElementById('payment-open-link');
+  const statusEl = document.getElementById('payment-status-text');
+  const orderNoEl = document.getElementById('payment-order-no');
+
+  if (amt) amt.innerText = '￥' + Number(amount || 0).toFixed(2);
+  if (label) label.innerText = method === 'wechat' ? '微信支付' : '支付宝';
+  if (statusEl) statusEl.innerText = '等待支付确认...';
+  if (orderNoEl) orderNoEl.innerText = orderNo;
+
+  if (method === 'wechat' && codeUrl){
+    if (qr){
+      qr.classList.remove('hidden');
+      qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(codeUrl)}`;
+    }
+    if (txt) txt.innerText = '请使用微信扫码完成支付';
+    if (openBtn) openBtn.classList.add('hidden');
+  } else {
+    if (qr) qr.classList.add('hidden');
+    if (openBtn) openBtn.classList.remove('hidden');
+    if (txt) txt.innerText = '已尝试打开支付页面，如未弹出可点击重新打开';
+  }
+
+  if (modal) modal.classList.remove('hidden');
+  startPaymentPolling(orderNo);
+}
+
+async function handleConfirmPayment(){
+  if (!paymentOrderNo){
+    handleClosePaymentModal();
+    return;
+  }
+  const statusEl = document.getElementById('payment-status-text');
+  if (statusEl) statusEl.innerText = '正在查询支付状态...';
+
+  // 先触发后端主动同步（可应对回调延迟/丢失），失败则退化为普通查询
+  let data = await api('/usage/recharge/order/' + paymentOrderNo + '/sync', 'POST', {});
+  if (!data) data = await api('/usage/recharge/order/' + paymentOrderNo);
+
+  if (!data){
+    alert('查询失败，请稍后再试');
+    return;
+  }
+
+  if (data.status === 'success'){
+    if (statusEl) statusEl.innerText = '支付成功，余额已更新';
+    handleClosePaymentModal();
+    await refreshBalance();
+    await loadUsageHistory();
+    await updateStats();
+  } else {
+    const extra = data.trade_state ? `（微信状态：${data.trade_state}）` : '';
+    alert(`当前状态：${data.status || 'pending'}${extra}，若已完成支付请稍等几秒再重试`);
+    if (statusEl) statusEl.innerText = `当前状态：${data.status || 'pending'}${extra}`;
+  }
+}
+
+async function handleRecharge(){
+  const amount = Number(selectedAmount || 0);
+  const method = String(selectedMethod || 'alipay');
+  if (!amount) return alert('请选择充值金额');
+  const token = authToken || localStorage.getItem('aio_token') || '';
+  const payload = { amount, method, return_url: window.location.origin + '/static/index.html' };
+  const res = await fetch('/api/v1/usage/recharge/order', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) return alert(data.detail || '下单失败，请检查支付配置');
+
+  if (method === 'alipay' && data.pay_url){
+    paymentPayUrl = data.pay_url;
+    window.open(data.pay_url, '_blank');
+  } else if (method === 'alipay' && !data.pay_url){
+    return alert('支付宝下单失败，缺少支付链接');
+  }
+  if (method === 'wechat' && !data.code_url){
+    return alert('微信下单失败，缺少二维码链接');
+  }
+  showPaymentModal(data.order_no, method, amount, data.code_url, data.pay_url);
+}
+
+function handleShowPersonalVerif(){ handleShowModal('personal-verif-modal'); }
+function handleShowEnterpriseVerif(){ handleShowModal('enterprise-verif-modal'); }
+
+let currentReviewId = null;
+
+function handleShowAdminReview(){
+  handleShowModal('admin-review-modal');
+  loadEnterpriseReviews('pending');
+}
+
+async function loadEnterpriseReviews(status = ''){
+  const token = authToken || localStorage.getItem('aio_token') || '';
+  const url = `/api/v1/admin/enterprise/reviews${status ? '?status=' + status : ''}`;
+  const res = await fetch(url, { headers: {'Authorization':'Bearer '+token} });
+  const data = await res.json().catch(()=>({data:[]}));
+  
+  const listEl = document.getElementById('admin-review-list');
+  if (!listEl) return;
+  
+  if (!data.data || data.data.length === 0) {
+    listEl.innerHTML = '<div class="text-center text-slate-400 py-8">暂无数据</div>';
+    return;
+  }
+  
+  listEl.innerHTML = data.data.map(r => {
+    const statusColor = r.status === 'approved' ? 'emerald' : r.status === 'rejected' ? 'red' : 'yellow';
+    const statusText = r.status === 'approved' ? '已通过' : r.status === 'rejected' ? '已拒绝' : '待审核';
+    return `
+      <div class="glass-card p-4 rounded-xl cursor-pointer hover:shadow-lg" onclick="handleShowReviewDetail(${r.id})">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="font-bold text-sm mb-1">${r.company_name || '未命名企业'}</div>
+            <div class="text-xs text-slate-400 mb-2">统一社会信用代码：${r.license_no}</div>
+            <div class="text-xs text-slate-400">申请人：${r.username} (${r.email}) | 联系电话：${r.contact_phone}</div>
+            ${r.review_time ? `<div class="text-xs text-slate-400 mt-1">审核时间：${new Date(r.review_time).toLocaleString()}</div>` : ''}
+          </div>
+          <span class="px-3 py-1 rounded-lg text-xs font-bold bg-${statusColor}-50 text-${statusColor}-700">${statusText}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function handleShowReviewDetail(reviewId){
+  currentReviewId = reviewId;
+  const token = authToken || localStorage.getItem('aio_token') || '';
+  const res = await fetch(`/api/v1/admin/enterprise/reviews/${reviewId}`, { headers: {'Authorization':'Bearer '+token} });
+  const data = await res.json().catch(()=>({}));
+  
+  if (!res.ok) return alert(data.detail || '加载失败');
+  
+  const contentEl = document.getElementById('admin-review-detail-content');
+  const actionsEl = document.getElementById('admin-review-actions');
+  
+  if (!contentEl) return;
+  
+  const statusColor = data.status === 'approved' ? 'emerald' : data.status === 'rejected' ? 'red' : 'yellow';
+  const statusText = data.status === 'approved' ? '已通过' : data.status === 'rejected' ? '已拒绝' : '待审核';
+  
+  contentEl.innerHTML = `
+    <div class="space-y-4">
+      <div>
+        <label class="text-xs text-slate-400">企业名称</label>
+        <div class="font-bold text-sm mt-1">${data.company_name}</div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">统一社会信用代码</label>
+        <div class="font-bold text-sm mt-1">${data.license_no}</div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">联系手机号</label>
+        <div class="font-bold text-sm mt-1">${data.contact_phone}</div>
+      </div>
+      ${data.wechat_id ? `
+      <div>
+        <label class="text-xs text-slate-400">企业微信ID</label>
+        <div class="font-bold text-sm mt-1">${data.wechat_id}</div>
+      </div>
+      ` : ''}
+      <div>
+        <label class="text-xs text-slate-400">营业执照</label>
+        <img src="${data.license_image_url}" alt="营业执照" class="mt-2 max-w-full rounded-lg border border-slate-200" />
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">申请人信息</label>
+        <div class="text-sm mt-1">${data.username} (${data.email})</div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">提交时间</label>
+        <div class="text-sm mt-1">${new Date(data.created_at).toLocaleString()}</div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400">审核状态</label>
+        <div class="mt-1"><span class="px-3 py-1 rounded-lg text-xs font-bold bg-${statusColor}-50 text-${statusColor}-700">${statusText}</span></div>
+      </div>
+      ${data.review_remark ? `
+      <div>
+        <label class="text-xs text-slate-400">审核备注</label>
+        <div class="text-sm mt-1 bg-slate-50 p-3 rounded-lg">${data.review_remark}</div>
+      </div>
+      ` : ''}
+      ${data.review_time ? `
+      <div>
+        <label class="text-xs text-slate-400">审核时间</label>
+        <div class="text-sm mt-1">${new Date(data.review_time).toLocaleString()}</div>
+      </div>
+      ` : ''}
+    </div>
+  `;
+  
+  if (actionsEl) {
+    if (data.status === 'pending') {
+      actionsEl.style.display = 'flex';
+    } else {
+      actionsEl.style.display = 'none';
+    }
+  }
+  
+  handleShowModal('admin-review-detail-modal');
+}
+
+async function handleApproveReview(){
+  if (!currentReviewId) return;
+  const remark = (await uiPrompt('请输入审核备注（可选）：', '审核备注')) || '';
+  const token = authToken || localStorage.getItem('aio_token') || '';
+  const res = await fetch(`/api/v1/admin/enterprise/reviews/${currentReviewId}/approve`, {
+    method: 'POST',
+    headers: {'Authorization':'Bearer '+token, 'Content-Type':'application/json'},
+    body: JSON.stringify({remark})
+  });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) return alert(data.detail || '审核失败');
+  alert(data.message || '审核通过');
+  handleCloseModal('admin-review-detail-modal');
+  loadEnterpriseReviews('pending');
+}
+
+async function handleRejectReview(){
+  if (!currentReviewId) return;
+  const remark = await uiPrompt('请输入拒绝原因（必填）：', '拒绝原因');
+  if (!remark || !remark.trim()) return alert('拒绝原因不能为空');
+  const token = authToken || localStorage.getItem('aio_token') || '';
+  const res = await fetch(`/api/v1/admin/enterprise/reviews/${currentReviewId}/reject`, {
+    method: 'POST',
+    headers: {'Authorization':'Bearer '+token, 'Content-Type':'application/json'},
+    body: JSON.stringify({remark: remark.trim()})
+  });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) return alert(data.detail || '审核失败');
+  alert(data.message || '已拒绝');
+  handleCloseModal('admin-review-detail-modal');
+  loadEnterpriseReviews('pending');
+}
+
+async function handleChangePassword(){
+  const old_password = document.getElementById('pwd-old')?.value || '';
+  const new_password = document.getElementById('pwd-new')?.value || '';
+  if (!old_password || !new_password) return alert('请输入原密码和新密码');
+  const res = await api('/user/change-password','POST',{old_password,new_password});
+  if (res?.message) alert(res.message);
+  handleCloseModal('password-modal');
+}
+
+async function handleSendSMS(){
+  const phone = (document.getElementById('pv-phone')?.value || '').trim();
+  if (!phone) return alert('请输入手机号');
+  const token = authToken || localStorage.getItem('aio_token') || '';
+  const res = await fetch(`/api/v1/user/send-sms?phone=${encodeURIComponent(phone)}`, { method:'POST', headers:{'Authorization':'Bearer '+token} });
+  const data = await res.json().catch(()=>({}));
+  alert(data.message || '已发送');
+}
+
+async function handleVerifyPersonal(){
+  const phone = (document.getElementById('pv-phone')?.value || '').trim();
+  const code = (document.getElementById('pv-code')?.value || '').trim();
+  if (!phone || !code) return alert('请输入手机号和验证码');
+  const token = authToken || localStorage.getItem('aio_token') || '';
+  const res = await fetch(`/api/v1/user/verify-personal?phone=${encodeURIComponent(phone)}&code=${encodeURIComponent(code)}`, { method:'POST', headers:{'Authorization':'Bearer '+token} });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) return alert(data.detail || '认证失败');
+  alert(data.message || '认证成功');
+  handleCloseModal('personal-verif-modal');
+  await updateProfile();
+}
+
+async function handleSendEnterpriseSMS(){
+  const phone = (document.getElementById('ev-contact-phone')?.value || '').trim();
+  if (!phone) return alert('请输入联系手机号');
+  const token = authToken || localStorage.getItem('aio_token') || '';
+  const res = await fetch(`/api/v1/user/send-sms?phone=${encodeURIComponent(phone)}`, { method:'POST', headers:{'Authorization':'Bearer '+token} });
+  const data = await res.json().catch(()=>({}));
+  alert(data.message || '已发送');
+}
+
+async function handleVerifyEnterprise(){
+  const companyName = (document.getElementById('ev-company-name')?.value || '').trim();
+  const licenseNo = (document.getElementById('ev-license-no')?.value || '').trim();
+  const contactPhone = (document.getElementById('ev-contact-phone')?.value || '').trim();
+  const phoneCode = (document.getElementById('ev-phone-code')?.value || '').trim();
+  const wechatId = (document.getElementById('ev-wechat-id')?.value || '').trim();
+  const f = document.getElementById('ev-file');
+  
+  if (!companyName) return alert('请输入企业名称');
+  if (!licenseNo) return alert('请输入统一社会信用代码');
+  if (!contactPhone) return alert('请输入联系手机号');
+  if (!phoneCode) return alert('请输入短信验证码');
+  if (!f || !f.files || !f.files[0]) return alert('请选择营业执照文件');
+  
+  const token = authToken || localStorage.getItem('aio_token') || '';
+  const fd = new FormData();
+  fd.append('company_name', companyName);
+  fd.append('license_no', licenseNo);
+  fd.append('contact_phone', contactPhone);
+  fd.append('phone_code', phoneCode);
+  if (wechatId) fd.append('wechat_id', wechatId);
+  fd.append('file', f.files[0]);
+  
+  const res = await fetch('/api/v1/user/verify-enterprise', { method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) return alert(data.detail || '认证失败');
+  alert(data.message || '认证信息已提交，等待管理员审核');
+  handleCloseModal('enterprise-verif-modal');
+  await updateProfile();
+}
+
+
+async function handleSaveLastAnswerToKB(btn){
+  try {
+    const hist = chatMode==='qa' ? qaHistory : chatMode==='code' ? codeHistory : opsHistory;
+    // 找到最后一条 assistant
+    const last = [...hist].reverse().find(m => m.role === 'assistant');
+    if (!last || !last.content) return alert('没有可保存的方案内容');
+
+    const now = new Date();
+    const ts = now.toISOString().slice(0,19).replace('T',' ');
+    const title = `方案-${ts}`;
+    if (btn){ btn.disabled = true }
+
+    const res = await api('/kb/private','POST',{ title, content: last.content });
+    if (!res) return;
+
+    if (btn){
+      btn.disabled = true;
+      btn.classList.remove('bg-blue-600');
+      btn.classList.add('bg-emerald-600');
+      btn.innerHTML = '<i class="fas fa-check"></i> 已存入知识库';
+    }
+    await loadPrivateKB();
+    await updateStats();
+  } catch (e){
+    console.error(e);
+    alert('保存失败，请稍后重试');
+  }
+}
+
+
+// --- OPS（Cursor 风格）：聊天内联授权卡片（不弹窗、不 confirm） ---
+window.opsCards = window.opsCards || {};
+
+function escapeHtml(x){
+  return String(x||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderOpsCardHtml(cardId, card){
+  if (!card) return `<div class="text-sm text-slate-500">授权卡片已失效（请重新发送指令生成计划）</div>`;
+  const status = card.status || 'pending';
+  const disabled = (status !== 'pending') ? 'disabled' : '';
+  const title = escapeHtml(card.host_ip || '');
+  const list = (card.plan || []).map((it, idx) => {
+    const desc = escapeHtml(it.desc || '');
+    const cmd = escapeHtml(it.cmd || '');
+    return `
+      <div class="flex items-start gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50">
+        <div class="mt-0.5 w-5 h-5 flex items-center justify-center rounded-md bg-white border border-slate-200 text-[10px] font-bold text-slate-600">${idx+1}</div>
+        <div class="min-w-0">
+          <div class="text-xs font-bold text-slate-700">${desc || '命令'}</div>
+          <div class="mt-1 text-xs font-mono text-slate-900 break-all">$ ${cmd}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const badge = status === 'pending'
+    ? `<span class="text-[10px] px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">待授权</span>`
+    : status === 'executing'
+      ? `<span class="text-[10px] px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">执行中</span>`
+      : status === 'done'
+        ? `<span class="text-[10px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">已执行</span>`
+        : `<span class="text-[10px] px-2 py-1 rounded-full bg-slate-50 text-slate-600 border border-slate-100">已取消</span>`;
+
+  return `
+    <div id="ops-card-${cardId}">
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <div class="text-sm font-bold text-slate-800">目标主机：${title}</div>
+        ${badge}
+      </div>
+      <div class="space-y-2">${list || '<div class="text-xs text-slate-400">没有可执行命令</div>'}</div>
+      <div class="mt-4 flex items-center justify-end gap-2">
+        <button ${status!=='pending' ? 'disabled' : ''} onclick="handleOpsCardCancel('${cardId}')" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed">取消</button>
+        <button ${status!=='pending' ? 'disabled' : ''} onclick="handleOpsCardExecute('${cardId}')" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">授权执行</button>
+      </div>
+      <div class="mt-2 text-[11px] text-slate-400">提示：点击“授权执行”将按顺序执行以上全部命令；不会再弹出二次确认。</div>
+    </div>
+  `;
+}
+
+function handleOpsCardCancel(cardId){
+  const c = window.opsCards?.[cardId];
+  if (!c) return;
+  c.status = 'cancelled';
+  renderChat();
+}
+
+async function handleOpsCardExecute(cardId){
+  const c = window.opsCards?.[cardId];
+  if (!c) return;
+  const el = document.getElementById(`ops-card-${cardId}`);
+  if (!el) return alert('找不到授权卡片，请刷新页面重试');
+
+  // 确保plan是数组，并验证每个步骤
+  let plan = c.plan;
+  if (!Array.isArray(plan)) {
+    console.error('plan不是数组格式:', plan);
+    return alert('计划格式错误，请重新生成计划');
+  }
+  
+  const steps = plan.filter(x => {
+    if (!x || typeof x !== 'object') return false;
+    const cmd = x.cmd;
+    if (!cmd || typeof cmd !== 'string') return false;
+    // 排除JSON片段
+    const cmdTrim = cmd.trim();
+    if (cmdTrim.startsWith('"steps"') || cmdTrim.startsWith('"cmd"') || cmdTrim.startsWith('{') || cmdTrim.startsWith('[')) {
+      console.warn('检测到无效命令（JSON片段）:', cmdTrim);
+      return false;
+    }
+    return true;
+  });
+  
+  if (!steps.length) {
+    return alert('没有可执行命令（计划可能解析失败，请重新生成）');
+  }
+
+  c.status = 'executing';
+  renderChat();
+
+  const totalSteps = steps.length;
+  let successCount = 0;
+  const failedSteps = [];
+
+  for (const step of steps){
+    const cmd = step.cmd;
+    const desc = step.desc || '命令';
+    try {
+      const res = await api('/ssh/execute','POST',{ host_id: c.host_id, command: cmd });
+      const out = res ? (res.output || '') : '';
+      const err = res ? (res.error || '') : '';
+      const code = (res && typeof res.exit_status !== 'undefined') ? res.exit_status : null;
+      const ok = !!(res && res.success === true) && (code === 0 || code === null);
+      const merged = (out + (err ? `\n${err}` : '')).trim() || (res ? JSON.stringify(res) : '执行失败/无返回');
+
+      const summary = ok ? '执行成功' : '执行失败';
+      const exitLine = code !== null ? code : '未返回';
+      const hint = ok
+        ? (merged ? '命令已成功执行，以上为输出。' : '命令已成功执行，无输出。')
+        : '命令执行失败，请根据输出检查原因或使用自动修正卡片继续。';
+      let outputText = merged || '';
+      if (!outputText && ok) {
+        outputText = '无输出（命令执行成功）';
+      }
+      if (outputText.startsWith('{"success":true') && !out && !err) {
+        outputText = '无输出（命令执行成功）';
+      }
+
+      opsHistory.push({ role: 'assistant', content:
+`### 执行结果（主机：${c.host_ip}）
+- 步骤：${desc}
+- 命令：\`$ ${cmd}\`
+- 结果：${summary}
+- 退出码：${exitLine}
+- 说明：${hint}
+
+输出/日志：
+\`\`\`
+${outputText}
+\`\`\``
+      });
+      renderChat();
+      await updateStats();
+
+      if (ok) {
+        successCount += 1;
+      } else {
+        failedSteps.push({ desc, cmd, exitLine, outputText });
+      }
+
+      // Cursor 风格自检：如果失败，自动生成“修正授权卡片”，让用户继续授权直到成功
+      if (!ok) {
+        opsHistory.push({ role: 'assistant', content: `检测到命令执行失败，我将基于错误信息自动修正并生成下一步可执行命令，请在下方卡片中授权继续。` });
+        renderChat();
+
+        const repairTask =
+          `你是高级 Linux 运维专家。刚才在主机 ${c.host_ip} 执行命令失败。\n` +
+          `原始需求：${c.task}\n` +
+          `失败命令：${cmd}\n` +
+          `输出/报错：\n${merged}\n` +
+          `请自检并给出下一条“可直接执行且能成功”的 shell 命令（只返回命令本身，不要解释）。`;
+
+        const rp = await api('/ssh/propose','POST',{ host_id: c.host_id, task: repairTask });
+        if (rp && rp.plan) {
+          const repairCardId = 'ops_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+          window.opsCards[repairCardId] = { host_id: c.host_id, host_ip: rp.host_ip || c.host_ip, plan: rp.plan, task: c.task, status: 'pending' };
+          opsHistory.push({ role: 'assistant', kind: 'ops_card', cardId: repairCardId });
+          renderChat();
+        } else {
+          opsHistory.push({ role: 'assistant', content: `自检失败：未能生成修正命令（请重试或换个更具体的指令）。` });
+          renderChat();
+        }
+
+        c.status = 'done';
+        renderChat();
+        return;
+      }
+    } catch (e) {
+      opsHistory.push({ role: 'assistant', content: `### 执行失败（${c.host_ip}）\n\n\`\`\`\n$ ${cmd}\n${e?.message || String(e)}\n\`\`\`` });
+      renderChat();
+    }
+  }
+
+  c.status = 'done';
+  renderChat();
+}
+
+setTimeout(() => {
+  try {
+    const active = document.querySelector('.sidebar-item.active');
+    if (active) showSection('dashboard', active);
+  } catch (e) {}
+}, 50);
+</script>
+
+<script src="/static/ui_dialog.js?v=1"></script>
+<script src="/static/cursor_style_patch.js?v=1766837471"></script>
+<script src="/static/host_mgmt_enhancement.js?v=1766832810"></script>
+<script src="/static/ops_dashboard.js?v=1766886524"></script>
+</body>
+</html>

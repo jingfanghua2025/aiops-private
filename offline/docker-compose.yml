@@ -1,0 +1,50 @@
+services:
+  backend:
+    image: ${AIOPS_BACKEND_IMAGE:-aiops-backend:offline}
+    container_name: aiops-backend
+    restart: always
+    env_file:
+      - ./config/aiops.env
+    environment:
+      - DATABASE_URL=mysql+pymysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/aiops
+      # 允许通过环境变量固定机器码（避免重启/网卡变化导致机器码抖动）
+      - AIOPS_MACHINE_CODE=${AIOPS_MACHINE_CODE:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+    volumes:
+      - ./logs:/app/logs
+      - ./static:/app/static:ro
+      - ./keys:/app/keys:ro
+      # 补丁挂载（交付增强：license/系统设置接口）
+      - ./patches/license.py:/app/app/core/license.py:ro
+      - ./patches/system_endpoints.py:/app/app/api/system_endpoints.py:ro
+
+  mysql:
+    image: mysql:8.0
+    container_name: aiops-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: aiops
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  nginx:
+    image: nginx:latest
+    container_name: aiops-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./static:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+
