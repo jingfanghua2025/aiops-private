@@ -137,7 +137,8 @@ def license_request(months: int = 1, _: User = Depends(require_admin)) -> dict[s
 async def license_token_import(file: UploadFile = File(...), _: User = Depends(require_admin)) -> dict[str, Any]:
     """从文件导入 license token（避免手动粘贴）。"""
     raw = (await file.read()).decode("utf-8", errors="ignore")
-    token = (raw or "").strip()
+    # 去除空白/换行/零宽字符，避免“复制粘贴换行”导致验签失败
+    token = "".join(ch for ch in (raw or "") if ch.strip()).strip()
     if not token:
         raise HTTPException(status_code=400, detail="文件为空或未包含token")
     try:
@@ -176,7 +177,8 @@ async def license_public_key_import(file: UploadFile = File(...), _: User = Depe
 
 @router.post("/license/activate")
 def license_activate(req: ActivateReq, _: User = Depends(require_admin)) -> dict[str, Any]:
-    token = (req.token or "").strip()
+    # 去除空白/换行/零宽字符，避免“复制粘贴换行”导致验签失败
+    token = "".join(ch for ch in (req.token or "") if ch.strip()).strip()
     if not token:
         raise HTTPException(status_code=400, detail="token不能为空")
     try:
