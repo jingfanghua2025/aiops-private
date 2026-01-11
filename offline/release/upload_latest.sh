@@ -75,20 +75,15 @@ echo "[+] ensure release exists: $REPO tag=$TAG"
 
 # 1) find or create release
 REL_JSON="$(api_json GET "$API/repos/$REPO/releases/tags/$TAG" || true)"
-REL_ID="$(python3 - <<'PY'
-import json,sys
+REL_ID="$(python3 -c 'import json,sys
 s=sys.stdin.read().strip()
 if not s:
-  print("")
-  sys.exit(0)
+  print(""); raise SystemExit(0)
 try:
   j=json.loads(s)
 except Exception:
-  print("")
-  sys.exit(0)
-print(j.get("id",""))
-PY
-<<<"$REL_JSON")"
+  print(""); raise SystemExit(0)
+print(j.get("id",""))' <<<"$REL_JSON")"
 
 if [[ -z "$REL_ID" ]]; then
   echo "[+] release not found, creating..."
@@ -104,34 +99,29 @@ PY
 )"
   # create may fail with 422 if tag_name already exists (e.g. draft release)
   REL_JSON="$(api_json POST "$API/repos/$REPO/releases" "$CREATE_JSON" || true)"
-  REL_ID="$(python3 - <<'PY'
-import json,sys
+  REL_ID="$(python3 -c 'import json,sys
 s=sys.stdin.read().strip()
 if not s:
-  print("")
-  sys.exit(0)
+  print(""); raise SystemExit(0)
 try:
   j=json.loads(s)
 except Exception:
-  print("")
-  sys.exit(0)
-print(j.get("id",""))
-PY
-<<<"$REL_JSON")"
+  print(""); raise SystemExit(0)
+print(j.get("id",""))' <<<"$REL_JSON")"
 
   if [[ -z "$REL_ID" ]]; then
     echo "[+] locate existing release by listing releases..."
-    REL_LIST="$(api_json GET "$API/repos/$REPO/releases?per_page=100")"
-    REL_ID="$(TAG="$TAG" python3 - <<'PY'
-import json,sys,os
-tag=os.environ["TAG"]
-j=json.loads(sys.stdin.read())
+    REL_LIST="$(api_json GET "$API/repos/$REPO/releases?per_page=100" || true)"
+    REL_ID="$(TAG="$TAG" python3 -c 'import json,sys,os
+tag=os.environ.get("TAG","")
+s=sys.stdin.read().strip()
+if not s:
+  print(""); raise SystemExit(0)
+j=json.loads(s)
 for r in j:
   if r.get("tag_name")==tag:
     print(r.get("id",""))
-    break
-PY
-<<<"$REL_LIST")"
+    break' <<<"$REL_LIST")"
   fi
 fi
 
@@ -154,16 +144,16 @@ upload_asset () {
   local assets_json
   assets_json="$(api_json GET "$API/repos/$REPO/releases/$REL_ID/assets")"
   local asset_id
-  asset_id="$(python3 - <<'PY'
-import json,sys,os
-j=json.loads(sys.stdin.read())
-name=os.environ["ASSET_NAME"]
+  asset_id="$(ASSET_NAME="$name" python3 -c 'import json,sys,os
+s=sys.stdin.read().strip()
+if not s:
+  print(""); raise SystemExit(0)
+j=json.loads(s)
+name=os.environ.get("ASSET_NAME","")
 for a in j:
   if a.get("name")==name:
     print(a.get("id",""))
-    break
-PY
-<<<"$assets_json" ASSET_NAME="$name")"
+    break' <<<"$assets_json")"
 
   if [[ -n "$asset_id" ]]; then
     echo "[+] asset exists, delete id=$asset_id"
