@@ -336,6 +336,7 @@ function addSystemSection(){
   if (!nav || !main) return;
 
   addNavItem(nav, 'nav-system', '系统设置', 'fas fa-gear', function(){ showSection('system', document.getElementById('nav-system')); });
+  addNavItem(nav, 'nav-license', 'License 许可', 'fas fa-key', function(){ showSection('license', document.getElementById('nav-license')); });
 
   if (document.getElementById('section-system')) return;
   const sec = document.createElement('div');
@@ -475,6 +476,89 @@ function addSystemSection(){
     </div>
   `;
   main.appendChild(sec);
+
+  // License 独立菜单页（管理员）
+  if (!document.getElementById('section-license')){
+    const lic = document.createElement('div');
+    lic.id = 'section-license';
+    lic.className = 'space-y-6 hidden';
+    lic.innerHTML = `
+      <div>
+        <h2 class="text-xl font-bold text-slate-800">License 许可</h2>
+        <div class="text-sm text-slate-500 mt-1">生成申请码、导入 token、查看试用/到期时间。</div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-4 space-y-5">
+        <div class="flex items-center justify-between">
+          <div class="font-bold text-slate-800">状态</div>
+          <button class="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold" onclick="loadLicenseStatus()">刷新</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <div class="text-xs font-bold text-slate-500">当前状态</div>
+            <div id="lic2-status" class="mt-1 text-sm font-bold text-slate-800">-</div>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-500">到期/试用截止</div>
+            <div id="lic2-exp" class="mt-1 text-sm font-mono text-slate-700">-</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <div class="text-xs font-bold text-slate-500">机器码</div>
+            <div class="flex gap-2 mt-1">
+              <input id="lic2-machine" class="flex-1 px-3 py-2 bg-slate-50 border rounded-xl font-mono text-xs" readonly />
+              <button class="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold" onclick="copyText(document.getElementById('lic2-machine').value);alert('已复制')">复制</button>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-500">申请码有效期</div>
+            <select id="lic2-months" class="w-full px-3 py-2 bg-slate-50 border rounded-xl">
+              <option value="1" selected>1个月（免费）</option>
+              <option value="3">3个月（需商务）</option>
+              <option value="6">6个月（需商务）</option>
+              <option value="12">1年（需商务）</option>
+              <option value="24">2年（需商务）</option>
+              <option value="36">3年（需商务）</option>
+            </select>
+            <div class="text-[11px] text-slate-400 mt-1">选择非1个月将提示联系商务采购，但仍可生成申请码用于审批。</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs font-bold text-slate-500">申请码（request_code）</div>
+          <div class="flex gap-2 mt-1">
+            <input id="lic2-request" class="flex-1 px-3 py-2 bg-slate-50 border rounded-xl font-mono text-xs" readonly />
+            <button class="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold" onclick="copyText(document.getElementById('lic2-request').value);alert('已复制')">复制</button>
+            <button class="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold" onclick="generateRequestCode()">生成</button>
+          </div>
+        </div>
+
+        <div class="text-xs text-slate-500">
+          <div class="font-bold text-slate-700 mb-1">申请步骤</div>
+          <ol id="lic2-steps" class="list-decimal ml-5 space-y-1"></ol>
+        </div>
+
+        <div class="border-t pt-4 space-y-3">
+          <div class="text-xs font-bold text-slate-500">导入 License Token</div>
+          <div class="flex gap-2 mt-1">
+            <textarea id="lic2-token" rows="3" class="flex-1 px-3 py-2 bg-white border rounded-xl font-mono text-xs" placeholder="粘贴 license token"></textarea>
+            <button class="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold" onclick="activateLicense2()">激活</button>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-[11px] text-slate-400">也可以导入 token 文件（.txt）</div>
+            <div class="flex items-center gap-2">
+              <input id="lic2-file" type="file" accept=".txt,.license,.jwt,.token,*/*" class="text-xs" />
+              <button class="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold" onclick="importLicenseTokenFile()">导入文件</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    main.appendChild(lic);
+  }
 }
 
 async function loadLicenseStatus(){
@@ -484,13 +568,21 @@ async function loadLicenseStatus(){
   const mode = d.mode || (st.ok ? 'ok' : 'blocked');
   document.getElementById('lic-status').textContent = mode === 'trial' ? '试用中' : (mode === 'license' ? '已激活' : '需要激活');
   document.getElementById('lic-exp').textContent = d.trial_end || d.license_expiry || '-';
+  if (document.getElementById('lic2-status')) document.getElementById('lic2-status').textContent = mode === 'trial' ? '试用中' : (mode === 'license' ? '已激活' : '需要激活');
+  if (document.getElementById('lic2-exp')) document.getElementById('lic2-exp').textContent = d.trial_end || d.license_expiry || '-';
 
-  const req = await api('/system/license/request');
+  const monthsSel = parseInt(document.getElementById('lic2-months')?.value || '1', 10) || 1;
+  const req = await api('/system/license/request?months=' + monthsSel);
   if (req){
     document.getElementById('lic-machine').value = req.machine_code || '';
     document.getElementById('lic-request').value = req.request_code || '';
     const steps = document.getElementById('lic-steps');
     steps.innerHTML = (req.steps||[]).map(s=>`<li>${escapeHtml(s)}</li>`).join('');
+
+    if (document.getElementById('lic2-machine')) document.getElementById('lic2-machine').value = req.machine_code || '';
+    if (document.getElementById('lic2-request')) document.getElementById('lic2-request').value = req.request_code || '';
+    const steps2 = document.getElementById('lic2-steps');
+    if (steps2) steps2.innerHTML = (req.steps||[]).map(s=>`<li>${escapeHtml(s)}</li>`).join('');
   }
 }
 
@@ -501,6 +593,55 @@ async function activateLicense(){
   if (res){
     alert(res.message || '激活成功');
     setTimeout(()=>location.reload(), 400);
+  }
+}
+
+async function generateRequestCode(){
+  const months = parseInt(document.getElementById('lic2-months')?.value || '1', 10) || 1;
+  if (months !== 1){
+    alert('提示：免费默认仅支持申请1个月；选择更长时长请联系商务采购。该申请码仍可用于提交审批。');
+  }
+  const req = await api('/system/license/request?months=' + months);
+  if (req){
+    document.getElementById('lic2-machine').value = req.machine_code || '';
+    document.getElementById('lic2-request').value = req.request_code || '';
+    const steps = document.getElementById('lic2-steps');
+    steps.innerHTML = (req.steps||[]).map(s=>`<li>${escapeHtml(s)}</li>`).join('');
+  }
+}
+
+async function activateLicense2(){
+  const token = (document.getElementById('lic2-token')?.value || '').trim();
+  if (!token) return alert('请粘贴 token');
+  const res = await api('/system/license/activate', 'POST', { token });
+  if (res){
+    alert(res.message || '激活成功');
+    await loadLicenseStatus();
+  }
+}
+
+async function importLicenseTokenFile(){
+  const f = document.getElementById('lic2-file')?.files?.[0];
+  if (!f) return alert('请选择token文件');
+  const fd = new FormData();
+  fd.append('file', f);
+  try{
+    const base = (typeof _consoleBasePrefix === 'function') ? _consoleBasePrefix() : '';
+    const token = localStorage.getItem('aio_token') || '';
+    const r = await fetch(base + '/api/v1/system/license/token/import', {
+      method: 'POST',
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+      body: fd,
+    });
+    const data = await r.json().catch(()=>null);
+    if (!r.ok){
+      alert('导入失败：' + (data?.detail || r.status));
+      return;
+    }
+    alert(data?.message || '导入成功');
+    await loadLicenseStatus();
+  }catch(e){
+    alert('导入失败：' + (e && e.message ? e.message : e));
   }
 }
 

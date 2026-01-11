@@ -4,6 +4,7 @@ import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi import UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from jose import jwt
@@ -96,17 +97,21 @@ def license_machine_code(_: User = Depends(require_admin)) -> dict[str, Any]:
     return {"machine_code": get_machine_fingerprint()}
 
 @router.get("/license/request")
-def license_request(_: User = Depends(require_admin)) -> dict[str, Any]:
+def license_request(months: int = 1, _: User = Depends(require_admin)) -> dict[str, Any]:
     """生成离线 license 申请信息（用于在官网提交机器码申请续期）。
 
     私有化环境通常无法出网：请把返回的 request_code 拷贝到可联网环境提交。
     """
     import base64, json
+    months = int(months or 1)
+    if months not in (1, 3, 6, 12, 24, 36):
+        raise HTTPException(status_code=400, detail="months仅支持: 1/3/6/12/24/36")
     machine_code = get_machine_fingerprint()
     ok, detail = ensure_license_state()
     payload = {
         "product": "跃云-AIOps",
         "machine_code": machine_code,
+        "requested_months": months,
     }
     request_code = base64.urlsafe_b64encode(json.dumps(payload, ensure_ascii=False).encode('utf-8')).decode('utf-8')
     return {
@@ -116,11 +121,24 @@ def license_request(_: User = Depends(require_admin)) -> dict[str, Any]:
         "request_code": request_code,
         "steps": [
             "在本私有化系统中复制机器码/申请码",
-            "到可联网环境访问跃云官网的 license 申请页面，提交申请码",
+            "到可联网环境访问跃云官网的 license 申请页面，提交申请码（含申请时长）",
             "等待审批后获取 license token",
             "回到本系统：系统设置 -> License 激活，粘贴 token 完成开通",
         ],
     }
+
+
+@router.post("/license/token/import")
+async def license_token_import(file: UploadFile = File(...), _: User = Depends(require_admin)) -> dict[str, Any]:
+    """从文件导入 license token（避免手动粘贴）。"""
+    raw = (await file.read()).decode("utf-8", errors="ignore")
+    token = (raw or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="文件为空或未包含token")
+    try:
+        return activate_license(token)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 
