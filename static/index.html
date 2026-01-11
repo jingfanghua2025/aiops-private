@@ -2550,6 +2550,23 @@ setTimeout(() => {
 <script src="/static/host_mgmt_enhancement.js?v=1766832810"></script>
 <script src="/static/ops_dashboard.js?v=1766886524"></script>
 
-<script src="/static/private_deploy_patch.js?v=2"></script>
+<script>
+// 私有化补丁：仅在后端声明 private_deployment=true 时加载；
+// 老系统/公有版（无该接口或返回非私有化）不会加载，避免菜单被误隐藏。
+(async function(){
+  try {
+    const base = (location.pathname && location.pathname.startsWith('/console/')) ? '/console' : '';
+    const url = base + '/api/v1/system/public';
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) return;
+    const j = await r.json();
+    if (!j || !j.private_deployment) return;
+    const s = document.createElement('script');
+    s.src = base + '/static/private_deploy_patch.js?v=2';
+    document.body.appendChild(s);
+  } catch (e) {}
+})();
+</script>
+
 </body>
 </html>
