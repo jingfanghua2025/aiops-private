@@ -19,6 +19,22 @@
 
 在目标机（已安装 Docker + docker compose）：
 
+### 方式A（推荐）：从 GitHub Release 下载“全量离线包”并一键部署
+
+> 这是真正的“一条命令搞定”：离线包里**自带所有镜像**（backend/mysql/nginx）+ `offline/` 一键脚本。
+
+```bash
+cd /tmp
+git clone git@github.com:jingfanghua2025/aiops-private.git
+cd aiops-private
+git checkout private-deploy
+
+chmod +x ./offline/install_from_release.sh
+GH_TOKEN=xxxx sudo -E ./offline/install_from_release.sh --tag latest
+```
+
+### 方式B：已拿到 offline/ 目录（不含镜像包），在目标机本地一键部署
+
 ```bash
 cd /opt/aiops/offline
 cp .env.example .env

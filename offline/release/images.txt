@@ -1,0 +1,9 @@
+# 需要随离线包一起交付的镜像清单（确保用户完全离线也能一键部署）
+# 说明：
+# - backend 镜像名可按实际改（建议统一为 aiops-backend:offline 或带版本号的 tag）
+# - mysql/nginx 也建议打进离线包，避免目标机无外网 pull 失败
+
+aiops-backend:offline
+mysql:8.0
+nginx:latest
+
