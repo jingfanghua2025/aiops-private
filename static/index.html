@@ -185,6 +185,9 @@
                 <a id="nav-ops" href="javascript:void(0)" class="sidebar-item hidden flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('ops', this)">
                     <i class="fas fa-chart-line w-5 opacity-70"></i><span class="font-semibold ml-2">运营看板</span>
                 </a>
+                <a id="nav-license-approve" href="javascript:void(0)" class="sidebar-item hidden flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('license-approve', this)">
+                    <i class="fas fa-key w-5 opacity-70"></i><span class="font-semibold ml-2">License 审批</span>
+                </a>
                 <a href="javascript:void(0)" class="sidebar-item flex items-center px-4 py-2.5 rounded-xl transition" onclick="showSection('profile', this)">
                     <i class="fas fa-user w-5 opacity-70"></i><span class="font-semibold ml-2">个人信息</span>
                 </a>
@@ -618,6 +621,36 @@
 
 </div>
 
+<!-- License Approve (admin only) -->
+<div id="section-license-approve" class="hidden space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-xl font-bold text-slate-800">License 审批</h2>
+      <div class="text-sm text-slate-500 mt-1">仅管理员可见：查看申请、签发 token、驳回。</div>
+    </div>
+    <button class="px-4 py-2 bg-slate-100 rounded-xl font-bold" onclick="loadLicenseApplications()">刷新</button>
+  </div>
+
+  <div class="glass-card rounded-2xl p-4">
+    <div class="overflow-auto">
+      <table class="w-full text-sm">
+        <thead class="text-slate-400">
+          <tr>
+            <th class="text-left py-2">ID</th>
+            <th class="text-left py-2">状态</th>
+            <th class="text-left py-2">产品</th>
+            <th class="text-left py-2">机器码</th>
+            <th class="text-left py-2">申请信息</th>
+            <th class="text-left py-2">时间</th>
+            <th class="text-right py-2">操作</th>
+          </tr>
+        </thead>
+        <tbody id="license-approve-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
             </div>
         </main>
     </div>
@@ -1038,6 +1071,7 @@ const SECTION_TITLES = {
   profile: '个人信息',
   contact: '联系我们',
   ops: '运营看板',
+  'license-approve': 'License 审批',
 };
 
 
@@ -1169,9 +1203,88 @@ function showSection(section, el) {
       loadHosts();
       renderChat();
     }
+    if (section === 'license-approve') {
+      loadLicenseApplications();
+    }
   } catch (e) {
     console.error('showSection hook error:', e);
   }
+}
+
+// ---- License approval (admin only) ----
+let __licenseAppsCache = [];
+async function loadLicenseApplications(){
+  const tb = document.getElementById('license-approve-tbody');
+  if (tb) tb.innerHTML = `<tr><td class="py-3 text-slate-500" colspan="7">加载中...</td></tr>`;
+  try{
+    const data = await api('/admin/license/applications');
+    __licenseAppsCache = (data && data.items) ? data.items : [];
+    renderLicenseApplications();
+  }catch(e){
+    console.error('loadLicenseApplications error:', e);
+    if (tb) tb.innerHTML = `<tr><td class="py-3 text-slate-500" colspan="7">加载失败：${escapeHtml(String(e && e.message ? e.message : e))}</td></tr>`;
+  }
+}
+
+function renderLicenseApplications(){
+  const tb = document.getElementById('license-approve-tbody');
+  if (!tb) return;
+  const items = __licenseAppsCache || [];
+  if (!items.length){
+    tb.innerHTML = `<tr><td class="py-3 text-slate-500" colspan="7">暂无申请</td></tr>`;
+    return;
+  }
+  tb.innerHTML = items.map(it => {
+    const id = it.id;
+    const daysSel = `
+      <select id="lic-days-${id}" class="px-2 py-1 bg-slate-50 border rounded-lg text-xs">
+        <option value="30">30天</option>
+        <option value="90">90天</option>
+        <option value="365" selected>365天</option>
+        <option value="730">730天</option>
+      </select>
+    `;
+    return `
+      <tr class="border-t border-slate-100">
+        <td class="py-2 font-mono text-xs">${id}</td>
+        <td class="py-2 font-bold">${escapeHtml(it.status || '-')}</td>
+        <td class="py-2">${escapeHtml(it.product || '')}</td>
+        <td class="py-2 font-mono text-[11px] break-all">${escapeHtml(it.machine_code || '')}</td>
+        <td class="py-2 text-xs text-slate-500">
+          <div>公司：${escapeHtml(it.company || '')}</div>
+          <div>联系人：${escapeHtml(it.contact_name || '')}</div>
+          <div>邮箱：${escapeHtml(it.email || '')}</div>
+          <div>电话：${escapeHtml(it.phone || '')}</div>
+        </td>
+        <td class="py-2 text-xs text-slate-500">
+          <div>创建：${escapeHtml(it.created_at || '')}</div>
+          <div>更新：${escapeHtml(it.updated_at || '')}</div>
+        </td>
+        <td class="py-2 text-right">
+          <div class="flex justify-end items-center gap-2 flex-wrap">
+            ${daysSel}
+            <button class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold" onclick="approveLicenseApp(${id})">通过</button>
+            <button class="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-bold" onclick="rejectLicenseApp(${id})">驳回</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function approveLicenseApp(id){
+  const days = parseInt(document.getElementById(`lic-days-${id}`)?.value || '365', 10);
+  const res = await api(`/admin/license/applications/${id}/approve`, 'POST', { days });
+  // 给管理员复制 token（前端不存储）
+  prompt('license_token（请复制保存并发给申请方）', (res && res.license_token) ? res.license_token : '');
+  await loadLicenseApplications();
+}
+
+async function rejectLicenseApp(id){
+  const reason = prompt('驳回原因（可选）','') || '';
+  await api(`/admin/license/applications/${id}/reject?reason=${encodeURIComponent(reason)}`, 'POST');
+  alert('已驳回');
+  await loadLicenseApplications();
 }
 
 function setText(id, text) {
@@ -1512,6 +1625,16 @@ async function updateProfile() {
       navOps.classList.remove('hidden');
     } else {
       navOps.classList.add('hidden');
+    }
+  }
+
+  // 显示/隐藏 License 审批菜单（仅管理员可见）
+  const navLic = document.getElementById('nav-license-approve');
+  if (navLic) {
+    if (data.is_admin) {
+      navLic.classList.remove('hidden');
+    } else {
+      navLic.classList.add('hidden');
     }
   }
 }

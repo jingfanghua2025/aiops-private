@@ -87,6 +87,90 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         return user
     except: raise HTTPException(status_code=401)
 
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if not getattr(user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="仅管理员可操作")
+    return user
+
+# ---- License approval proxy (binds to old-system admin) ----
+LICENSE_SERVICE_BASE_URL = os.getenv("LICENSE_SERVICE_BASE_URL", "http://127.0.0.1:9001").rstrip("/")
+LICENSE_SERVICE_PREFIX = os.getenv("LICENSE_SERVICE_PREFIX", "/api/license").strip()
+if LICENSE_SERVICE_PREFIX and not LICENSE_SERVICE_PREFIX.startswith("/"):
+    LICENSE_SERVICE_PREFIX = "/" + LICENSE_SERVICE_PREFIX
+LICENSE_ADMIN_TOKEN = os.getenv("LICENSE_ADMIN_TOKEN", "").strip()
+
+def _license_headers() -> dict:
+    if not LICENSE_ADMIN_TOKEN:
+        raise HTTPException(status_code=500, detail="LICENSE_ADMIN_TOKEN 未配置")
+    return {"Authorization": f"Bearer {LICENSE_ADMIN_TOKEN}"}
+
+def _license_url(path: str) -> str:
+    if not path.startswith("/"):
+        path = "/" + path
+    return f"{LICENSE_SERVICE_BASE_URL}{path}"
+
+class LicenseApproveReq(BaseModel):
+    days: int = 365
+
+@router.get("/admin/license/applications")
+async def admin_license_list(_: User = Depends(require_admin)):
+    try:
+        r = requests.get(
+            _license_url(f"{LICENSE_SERVICE_PREFIX}/admin/applications"),
+            headers=_license_headers(),
+            timeout=10,
+        )
+        if r.status_code >= 400:
+            raise HTTPException(status_code=502, detail=f"license服务错误: {r.status_code}")
+        return r.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+@router.post("/admin/license/applications/{application_id}/approve")
+async def admin_license_approve(application_id: int, req: LicenseApproveReq, _: User = Depends(require_admin)):
+    try:
+        r = requests.post(
+            _license_url(f"{LICENSE_SERVICE_PREFIX}/admin/applications/{int(application_id)}/approve"),
+            headers={**_license_headers(), "Content-Type": "application/json"},
+            json={"days": int(req.days or 365)},
+            timeout=15,
+        )
+        if r.status_code >= 400:
+            # forward a short error body if possible
+            try:
+                detail = r.json()
+            except Exception:
+                detail = r.text[:200]
+            raise HTTPException(status_code=502, detail={"status": r.status_code, "detail": detail})
+        return r.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+@router.post("/admin/license/applications/{application_id}/reject")
+async def admin_license_reject(application_id: int, reason: str = "", _: User = Depends(require_admin)):
+    try:
+        r = requests.post(
+            _license_url(f"{LICENSE_SERVICE_PREFIX}/admin/applications/{int(application_id)}/reject"),
+            headers=_license_headers(),
+            params={"reason": reason or ""},
+            timeout=15,
+        )
+        if r.status_code >= 400:
+            try:
+                detail = r.json()
+            except Exception:
+                detail = r.text[:200]
+            raise HTTPException(status_code=502, detail={"status": r.status_code, "detail": detail})
+        return r.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
 # --- Schemas ---
 class SSHHostSchema(BaseModel):
     name: str
